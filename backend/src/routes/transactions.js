@@ -103,7 +103,7 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
 });
 
 // POST /api/transactions - Create new transaction
-router.post('/', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const { error, value } = transactionSchema.validate(req.body);
     if (error) {
@@ -138,7 +138,7 @@ router.post('/', process.env.NODE_ENV === 'development' ? (req, res, next) => ne
       const [transaction] = await trx('transactions')
         .insert({
           ...value,
-          volunteer_name: value.volunteer_name || req.volunteer.name,
+          volunteer_name: req.user.name, // Always use authenticated user's name
           created_at: new Date()
         })
         .returning('*');
@@ -166,7 +166,7 @@ router.post('/', process.env.NODE_ENV === 'development' ? (req, res, next) => ne
 });
 
 // GET /api/books/:book_id/transactions - Get transactions for a specific book
-router.get('/books/:book_id/transactions', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.get('/books/:book_id/transactions', authenticateToken, async (req, res, next) => {
   try {
     const transactions = await db('transactions')
       .where({ book_id: req.params.book_id })

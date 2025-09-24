@@ -12,12 +12,15 @@ enum TransactionType {
 @JsonSerializable()
 class Transaction {
   final String id;
+  @JsonKey(name: 'book_id')
   final String bookId;
   final TransactionType type;
   final int quantity;
   final DateTime date;
   final String? notes;
+  @JsonKey(name: 'volunteer_name')
   final String? volunteerName;
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
 
   const Transaction({

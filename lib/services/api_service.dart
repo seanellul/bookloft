@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/book.dart';
 import '../models/transaction.dart';
 import '../models/inventory_summary.dart';
+import 'auth_service.dart';
 
 class ApiService {
   static const String baseUrl =
@@ -12,10 +13,13 @@ class ApiService {
   // Book operations
   static Future<List<Book>> getAllBooks() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/books'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(timeout);
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/books'),
+            headers: headers,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
@@ -37,10 +41,13 @@ class ApiService {
 
   static Future<Book?> getBookByIsbn(String isbn) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/books/isbn/$isbn'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(timeout);
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/books/isbn/$isbn'),
+            headers: headers,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -62,10 +69,13 @@ class ApiService {
 
   static Future<List<Book>> searchBooks(String query) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/books/search?q=${Uri.encodeComponent(query)}'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(timeout);
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/books/search?q=${Uri.encodeComponent(query)}'),
+            headers: headers,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
@@ -87,10 +97,11 @@ class ApiService {
 
   static Future<Book> createBook(Book book) async {
     try {
+      final headers = await AuthService.getAuthHeaders();
       final response = await http
           .post(
             Uri.parse('$baseUrl/books'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: json.encode(book.toJson()),
           )
           .timeout(timeout);
@@ -113,10 +124,11 @@ class ApiService {
 
   static Future<Book> updateBook(Book book) async {
     try {
+      final headers = await AuthService.getAuthHeaders();
       final response = await http
           .put(
             Uri.parse('$baseUrl/books/${book.id}'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: json.encode(book.toJson()),
           )
           .timeout(timeout);
@@ -140,10 +152,11 @@ class ApiService {
   // Transaction operations
   static Future<Transaction> createTransaction(Transaction transaction) async {
     try {
+      final headers = await AuthService.getAuthHeaders();
       final response = await http
           .post(
             Uri.parse('$baseUrl/transactions'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: json.encode(transaction.toJson()),
           )
           .timeout(timeout);
@@ -166,10 +179,13 @@ class ApiService {
 
   static Future<List<Transaction>> getBookTransactions(String bookId) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/books/$bookId/transactions'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(timeout);
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/books/$bookId/transactions'),
+            headers: headers,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
@@ -192,10 +208,13 @@ class ApiService {
   // Inventory summary
   static Future<InventorySummary> getInventorySummary() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/inventory/summary'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(timeout);
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/inventory/summary'),
+            headers: headers,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);

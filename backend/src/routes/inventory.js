@@ -5,7 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // GET /api/inventory/summary - Get inventory summary statistics
-router.get('/summary', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.get('/summary', authenticateToken, async (req, res, next) => {
   try {
     // Get total books count
     const [{ total_books }] = await db('books').count('* as total_books');

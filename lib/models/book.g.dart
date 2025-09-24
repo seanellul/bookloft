@@ -15,7 +15,7 @@ Book _$BookFromJson(Map<String, dynamic> json) => Book(
       publishedDate: json['published_date'] as String?,
       description: json['description'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
-      quantity: json['quantity'] as int,
+      quantity: (json['quantity'] as num).toInt(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

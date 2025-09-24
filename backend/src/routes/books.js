@@ -13,7 +13,7 @@ const bookSchema = Joi.object({
   publisher: Joi.string().max(255).optional(),
   published_date: Joi.date().optional(),
   description: Joi.string().optional(),
-  thumbnail_url: Joi.string().uri().max(500).optional(),
+  thumbnail_url: Joi.string().uri().max(500).allow('').optional(),
   quantity: Joi.number().integer().min(0).default(0)
 });
 
@@ -25,7 +25,7 @@ const searchSchema = Joi.object({
 });
 
 // GET /api/books - Get all books with pagination and search
-router.get('/', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.get('/', authenticateToken, async (req, res, next) => {
   try {
     const { error, value } = searchSchema.validate(req.query);
     if (error) {
@@ -83,7 +83,7 @@ router.get('/', process.env.NODE_ENV === 'development' ? (req, res, next) => nex
 });
 
 // GET /api/books/:id - Get book by ID
-router.get('/:id', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.get('/:id', authenticateToken, async (req, res, next) => {
   try {
     const book = await db('books').where({ id: req.params.id }).first();
     
@@ -104,7 +104,7 @@ router.get('/:id', process.env.NODE_ENV === 'development' ? (req, res, next) => 
 });
 
 // GET /api/books/isbn/:isbn - Get book by ISBN
-router.get('/isbn/:isbn', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.get('/isbn/:isbn', authenticateToken, async (req, res, next) => {
   try {
     const book = await db('books').where({ isbn: req.params.isbn }).first();
     
@@ -125,7 +125,7 @@ router.get('/isbn/:isbn', process.env.NODE_ENV === 'development' ? (req, res, ne
 });
 
 // POST /api/books - Create new book
-router.post('/', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const { error, value } = bookSchema.validate(req.body);
     if (error) {
@@ -153,7 +153,7 @@ router.post('/', process.env.NODE_ENV === 'development' ? (req, res, next) => ne
 });
 
 // PUT /api/books/:id - Update book
-router.put('/:id', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.put('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { error, value } = bookSchema.validate(req.body);
     if (error) {
@@ -188,7 +188,7 @@ router.put('/:id', process.env.NODE_ENV === 'development' ? (req, res, next) => 
 });
 
 // DELETE /api/books/:id - Delete book (soft delete by setting quantity to 0)
-router.delete('/:id', process.env.NODE_ENV === 'development' ? (req, res, next) => next() : authenticateToken, async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
   try {
     const [book] = await db('books')
       .where({ id: req.params.id })

@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import '../widgets/inventory_summary_card.dart';
 import '../widgets/quick_actions.dart';
+import '../services/auth_service.dart';
 import 'search_screen.dart';
 import 'scanner_screen.dart';
 import 'inventory_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,6 +46,31 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return const SizedBox.shrink();
             },
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'logout') {
+                await AuthService.logout();
+                if (mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                        builder: (context) => const LoginScreen()),
+                  );
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

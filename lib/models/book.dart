@@ -9,11 +9,15 @@ class Book {
   final String title;
   final String author;
   final String? publisher;
+  @JsonKey(name: 'published_date')
   final String? publishedDate;
   final String? description;
+  @JsonKey(name: 'thumbnail_url')
   final String? thumbnailUrl;
   final int quantity;
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
+  @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
 
   const Book({

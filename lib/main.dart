@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/inventory_provider.dart';
-import 'screens/home_screen.dart';
+import 'widgets/auth_wrapper.dart';
 
 void main() {
   runApp(const BookLoftApp());
@@ -42,7 +42,7 @@ class BookLoftApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const HomeScreen(),
+        home: const AuthWrapper(),
         debugShowCheckedModeBanner: false,
       ),
     );

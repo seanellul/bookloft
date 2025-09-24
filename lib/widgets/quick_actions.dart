@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../screens/scanner_screen.dart';
 import '../screens/search_screen.dart';
+import '../screens/manual_book_entry_screen.dart';
+import '../screens/inventory_screen.dart';
 
 class QuickActions extends StatelessWidget {
   const QuickActions({super.key});
@@ -42,6 +44,38 @@ class QuickActions extends StatelessWidget {
                 () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SearchScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                context,
+                'Manual Entry',
+                Icons.edit,
+                Colors.orange,
+                () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ManualBookEntryScreen(),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                context,
+                'View Inventory',
+                Icons.inventory,
+                Colors.purple,
+                () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const InventoryScreen(),
                   ),
                 ),
               ),

@@ -27,7 +27,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   final _publisherController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
-  final _volunteerNameController = TextEditingController();
+  // Volunteer name will be auto-populated from authenticated user
   final _notesController = TextEditingController();
 
   bool _isLoading = false;
@@ -125,7 +125,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     _publisherController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
-    _volunteerNameController.dispose();
+    // Volunteer name controller removed - auto-populated from auth
     _notesController.dispose();
     super.dispose();
   }
@@ -326,35 +326,28 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
-                                child: RadioListTile<bool>(
-                                  title: const Text('Donation'),
-                                  subtitle:
-                                      const Text('Adding books to inventory'),
-                                  value: true,
-                                  groupValue: _isDonation,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _isDonation = value!;
-                                    });
-                                  },
+                                child: _buildTransactionTypeSelector(
+                                  context,
+                                  'Donation',
+                                  'Adding books to inventory',
+                                  Icons.add_circle_outline,
+                                  true,
+                                  _isDonation,
                                 ),
                               ),
+                              const SizedBox(width: 12),
                               Expanded(
-                                child: RadioListTile<bool>(
-                                  title: const Text('Sale'),
-                                  subtitle: const Text(
-                                      'Removing books from inventory'),
-                                  value: false,
-                                  groupValue: _isDonation,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _isDonation = value!;
-                                    });
-                                  },
+                                child: _buildTransactionTypeSelector(
+                                  context,
+                                  'Sale',
+                                  'Removing books from inventory',
+                                  Icons.remove_circle_outline,
+                                  false,
+                                  !_isDonation,
                                 ),
                               ),
                             ],
@@ -383,23 +376,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                 ),
                           ),
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: _quantityController,
-                            decoration: InputDecoration(
-                              labelText: 'Quantity *',
-                              border: const OutlineInputBorder(),
-                              suffixText: _isDonation ? 'books' : 'books',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _volunteerNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Volunteer Name',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
+                          // Quantity selector
+                          _buildQuantitySelector(context),
+                          // Volunteer name is auto-populated from authenticated user
                           const SizedBox(height: 12),
                           TextField(
                             controller: _notesController,
@@ -446,6 +425,163 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     // TODO: Implement edit book functionality
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Edit functionality coming soon')),
+    );
+  }
+
+  Widget _buildTransactionTypeSelector(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    bool isDonation,
+    bool isSelected,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isDonation = isDonation;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+              : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey[600],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey[700],
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.8)
+                        : Colors.grey[600],
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuantitySelector(BuildContext context) {
+    final quantity = int.tryParse(_quantityController.text) ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Decrease button
+          GestureDetector(
+            onTap: quantity > 0
+                ? () {
+                    setState(() {
+                      _quantityController.text = (quantity - 1).toString();
+                    });
+                  }
+                : null,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: quantity > 0
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                    : Colors.grey[200],
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: quantity > 0
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey[400]!,
+                ),
+              ),
+              child: Icon(
+                Icons.remove,
+                color: quantity > 0
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey[400],
+              ),
+            ),
+          ),
+
+          // Quantity display
+          Column(
+            children: [
+              Text(
+                quantity.toString(),
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+              Text(
+                _isDonation ? 'books to add' : 'books to sell',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+              ),
+            ],
+          ),
+
+          // Increase button
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _quantityController.text = (quantity + 1).toString();
+              });
+            },
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              child: Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -515,9 +651,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           quantity: quantity,
           date: DateTime.now(),
           notes: _notesController.text.isEmpty ? null : _notesController.text,
-          volunteerName: _volunteerNameController.text.isEmpty
-              ? null
-              : _volunteerNameController.text,
+          volunteerName:
+              '', // Will be auto-populated by backend from authenticated user
           createdAt: DateTime.now(),
         );
 
