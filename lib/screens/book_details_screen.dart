@@ -75,6 +75,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           _bookCoverUrl = bookData['thumbnail_url'];
           print('Book cover URL from API lookup: $_bookCoverUrl'); // Debug
           print('Author from API lookup: ${_authorController.text}'); // Debug
+          print('Full book data from API: $bookData'); // Debug all metadata
         });
       }
     } catch (e) {
@@ -375,7 +376,51 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 _buildInfoRow(
                     context, 'Author', _authorController.text, Icons.person),
                 _buildInfoRow(
-                    context, 'ISBN', widget.scannedBarcode, Icons.qr_code),
+                    context, 'ISBN-13', widget.scannedBarcode, Icons.qr_code),
+
+                // New metadata fields
+                if (widget.book?.isbn10 != null &&
+                    widget.book!.isbn10!.isNotEmpty)
+                  _buildInfoRow(context, 'ISBN-10', widget.book!.isbn10!,
+                      Icons.qr_code_2),
+                if (widget.book?.publishedDate != null &&
+                    widget.book!.publishedDate!.isNotEmpty)
+                  _buildInfoRow(context, 'Published',
+                      widget.book!.publishedDate!, Icons.calendar_today),
+                if (widget.book?.binding != null &&
+                    widget.book!.binding!.isNotEmpty)
+                  _buildInfoRow(
+                      context, 'Binding', widget.book!.binding!, Icons.book),
+                if (widget.book?.language != null &&
+                    widget.book!.language!.isNotEmpty)
+                  _buildInfoRow(context, 'Language', widget.book!.language!,
+                      Icons.language),
+                if (widget.book?.pageCount != null &&
+                    widget.book!.pageCount!.isNotEmpty)
+                  _buildInfoRow(context, 'Pages', widget.book!.pageCount!,
+                      Icons.menu_book),
+                if (widget.book?.edition != null &&
+                    widget.book!.edition!.isNotEmpty)
+                  _buildInfoRow(context, 'Edition', widget.book!.edition!,
+                      Icons.library_books),
+                if (widget.book?.series != null &&
+                    widget.book!.series!.isNotEmpty)
+                  _buildInfoRow(context, 'Series', widget.book!.series!,
+                      Icons.collections_bookmark),
+                if (widget.book?.subtitle != null &&
+                    widget.book!.subtitle!.isNotEmpty)
+                  _buildInfoRow(context, 'Subtitle', widget.book!.subtitle!,
+                      Icons.subtitles),
+                if (widget.book?.categories != null &&
+                    widget.book!.categories!.isNotEmpty)
+                  _buildInfoRow(context, 'Categories', widget.book!.categories!,
+                      Icons.category),
+                if (widget.book?.format != null &&
+                    widget.book!.format!.isNotEmpty)
+                  _buildInfoRow(context, 'Format', widget.book!.format!,
+                      Icons.format_align_left),
+
+                // Original fields
                 if (_publisherController.text.isNotEmpty)
                   _buildInfoRow(context, 'Publisher', _publisherController.text,
                       Icons.business),
@@ -847,6 +892,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
       if (widget.isNewBook) {
         // For new books, save the book first
+        // Get metadata from API lookup if available
+        final bookData =
+            await ApiService.lookupBookByIsbn(widget.scannedBarcode);
+
         bookToUse = Book(
           id: '', // Will be set by backend
           isbn: widget.scannedBarcode,
@@ -855,7 +904,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           publisher: _publisherController.text.isEmpty
               ? null
               : _publisherController.text,
-          publishedDate: null,
+          publishedDate: bookData?['publish_date'],
           description: _descriptionController.text.isEmpty
               ? null
               : _descriptionController.text,
@@ -863,6 +912,20 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           quantity: 0, // Initial quantity is 0, transactions add/remove
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          // New metadata fields from API lookup
+          binding: bookData?['binding'],
+          isbn10: bookData?['isbn_10'],
+          language: bookData?['language'],
+          pageCount: bookData?['page_count'],
+          dimensions: bookData?['dimensions'],
+          weight: bookData?['weight'],
+          edition: bookData?['edition'],
+          series: bookData?['series'],
+          subtitle: bookData?['subtitle'],
+          categories: bookData?['categories'],
+          tags: bookData?['tags'],
+          maturityRating: bookData?['maturity_rating'],
+          format: bookData?['format'],
         );
 
         // Save the book first

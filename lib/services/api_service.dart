@@ -325,6 +325,21 @@ class ApiService {
           ? 'https://covers.openlibrary.org/b/id/${data['covers'][0]}-M.jpg'
           : null,
       'isbn': data['isbn_13']?.first ?? data['isbn_10']?.first ?? '',
+      // New metadata fields
+      'binding': _extractBinding(data),
+      'isbn_10': data['isbn_10']?.first,
+      'language':
+          data['languages']?.first?['key']?.replaceAll('/languages/', ''),
+      'page_count': data['number_of_pages']?.toString(),
+      'dimensions': _extractDimensions(data),
+      'weight': data['weight'],
+      'edition': data['edition_name'],
+      'series': data['series']?.first,
+      'subtitle': data['subtitle'],
+      'categories': _extractCategories(data),
+      'tags': _extractTags(data),
+      'maturity_rating': data['maturity_rating'],
+      'format': _extractFormat(data),
     };
     print('Open Library API result: $result'); // Debug
     return result;
@@ -353,8 +368,116 @@ class ApiService {
               (id) => id['type'] == 'ISBN_13' || id['type'] == 'ISBN_10',
               orElse: () => {'identifier': ''})['identifier'] ??
           '',
+      // New metadata fields
+      'binding': _extractBindingFromGoogle(volumeInfo),
+      'isbn_10': _extractIsbn10(volumeInfo),
+      'language': volumeInfo['language'],
+      'page_count': volumeInfo['pageCount']?.toString(),
+      'dimensions': _extractDimensionsFromGoogle(volumeInfo),
+      'weight': _extractWeightFromGoogle(volumeInfo),
+      'edition': volumeInfo['edition'],
+      'series': _extractSeriesFromGoogle(volumeInfo),
+      'subtitle': volumeInfo['subtitle'],
+      'categories': _extractCategoriesFromGoogle(volumeInfo),
+      'tags': _extractTagsFromGoogle(volumeInfo),
+      'maturity_rating': volumeInfo['maturityRating'],
+      'format': _extractFormatFromGoogle(volumeInfo),
     };
     print('Google Books API result: $result'); // Debug
     return result;
+  }
+
+  // Helper methods for extracting metadata from Open Library
+  static String? _extractBinding(Map<String, dynamic> data) {
+    // Open Library doesn't always have binding info, but we can infer from other fields
+    return null; // Will be populated by Google Books if available
+  }
+
+  static String? _extractDimensions(Map<String, dynamic> data) {
+    // Open Library doesn't typically have dimensions
+    return null;
+  }
+
+  static String? _extractCategories(Map<String, dynamic> data) {
+    final subjects = data['subjects'] as List?;
+    if (subjects != null && subjects.isNotEmpty) {
+      return subjects.take(5).join(', '); // Limit to 5 categories
+    }
+    return null;
+  }
+
+  static String? _extractTags(Map<String, dynamic> data) {
+    final subjects = data['subjects'] as List?;
+    if (subjects != null && subjects.isNotEmpty) {
+      return subjects.take(10).join(', '); // Limit to 10 tags
+    }
+    return null;
+  }
+
+  static String? _extractFormat(Map<String, dynamic> data) {
+    // Open Library doesn't typically have format info
+    return null;
+  }
+
+  // Helper methods for extracting metadata from Google Books
+  static String? _extractBindingFromGoogle(Map<String, dynamic> volumeInfo) {
+    // Google Books sometimes has binding info in printType
+    final printType = volumeInfo['printType'];
+    if (printType == 'BOOK') {
+      // Could be hardback or paperback, but Google Books doesn't always specify
+      return 'book'; // Generic book format
+    }
+    return printType?.toLowerCase();
+  }
+
+  static String? _extractIsbn10(Map<String, dynamic> volumeInfo) {
+    final identifiers = volumeInfo['industryIdentifiers'] as List?;
+    if (identifiers != null) {
+      for (final id in identifiers) {
+        if (id['type'] == 'ISBN_10') {
+          return id['identifier'];
+        }
+      }
+    }
+    return null;
+  }
+
+  static String? _extractDimensionsFromGoogle(Map<String, dynamic> volumeInfo) {
+    // Google Books doesn't typically provide dimensions
+    return null;
+  }
+
+  static String? _extractWeightFromGoogle(Map<String, dynamic> volumeInfo) {
+    // Google Books doesn't typically provide weight
+    return null;
+  }
+
+  static String? _extractSeriesFromGoogle(Map<String, dynamic> volumeInfo) {
+    // Google Books doesn't typically provide series info
+    return null;
+  }
+
+  static String? _extractCategoriesFromGoogle(Map<String, dynamic> volumeInfo) {
+    final categories = volumeInfo['categories'] as List?;
+    if (categories != null && categories.isNotEmpty) {
+      return categories.take(5).join(', '); // Limit to 5 categories
+    }
+    return null;
+  }
+
+  static String? _extractTagsFromGoogle(Map<String, dynamic> volumeInfo) {
+    final categories = volumeInfo['categories'] as List?;
+    if (categories != null && categories.isNotEmpty) {
+      return categories.take(10).join(', '); // Limit to 10 tags
+    }
+    return null;
+  }
+
+  static String? _extractFormatFromGoogle(Map<String, dynamic> volumeInfo) {
+    final printType = volumeInfo['printType'];
+    if (printType != null) {
+      return printType.toLowerCase();
+    }
+    return null;
   }
 }

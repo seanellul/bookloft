@@ -14,7 +14,21 @@ const bookSchema = Joi.object({
   published_date: Joi.date().optional(),
   description: Joi.string().optional(),
   thumbnail_url: Joi.string().uri().max(500).allow('').optional(),
-  quantity: Joi.number().integer().min(0).default(0)
+  quantity: Joi.number().integer().min(0).default(0),
+  // New metadata fields
+  binding: Joi.string().max(50).optional(),
+  isbn_10: Joi.string().max(10).optional(),
+  language: Joi.string().max(10).optional(),
+  page_count: Joi.string().max(10).optional(),
+  dimensions: Joi.string().max(50).optional(),
+  weight: Joi.string().max(20).optional(),
+  edition: Joi.string().max(50).optional(),
+  series: Joi.string().max(255).optional(),
+  subtitle: Joi.string().max(500).optional(),
+  categories: Joi.string().optional(), // JSON string
+  tags: Joi.string().optional(), // JSON string
+  maturity_rating: Joi.string().max(20).optional(),
+  format: Joi.string().max(50).optional()
 });
 
 const searchSchema = Joi.object({

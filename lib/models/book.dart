@@ -20,6 +20,24 @@ class Book {
   @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
 
+  // New metadata fields
+  final String? binding; // hardback, paperback, etc.
+  @JsonKey(name: 'isbn_10')
+  final String? isbn10;
+  final String? language;
+  @JsonKey(name: 'page_count')
+  final String? pageCount;
+  final String? dimensions;
+  final String? weight;
+  final String? edition;
+  final String? series;
+  final String? subtitle;
+  final String? categories; // JSON string
+  final String? tags; // JSON string
+  @JsonKey(name: 'maturity_rating')
+  final String? maturityRating;
+  final String? format;
+
   const Book({
     required this.id,
     required this.isbn,
@@ -32,6 +50,20 @@ class Book {
     required this.quantity,
     required this.createdAt,
     required this.updatedAt,
+    // New metadata fields
+    this.binding,
+    this.isbn10,
+    this.language,
+    this.pageCount,
+    this.dimensions,
+    this.weight,
+    this.edition,
+    this.series,
+    this.subtitle,
+    this.categories,
+    this.tags,
+    this.maturityRating,
+    this.format,
   });
 
   factory Book.fromJson(Map<String, dynamic> json) => _$BookFromJson(json);
@@ -49,6 +81,20 @@ class Book {
     int? quantity,
     DateTime? createdAt,
     DateTime? updatedAt,
+    // New metadata fields
+    String? binding,
+    String? isbn10,
+    String? language,
+    String? pageCount,
+    String? dimensions,
+    String? weight,
+    String? edition,
+    String? series,
+    String? subtitle,
+    String? categories,
+    String? tags,
+    String? maturityRating,
+    String? format,
   }) {
     return Book(
       id: id ?? this.id,
@@ -62,6 +108,20 @@ class Book {
       quantity: quantity ?? this.quantity,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      // New metadata fields
+      binding: binding ?? this.binding,
+      isbn10: isbn10 ?? this.isbn10,
+      language: language ?? this.language,
+      pageCount: pageCount ?? this.pageCount,
+      dimensions: dimensions ?? this.dimensions,
+      weight: weight ?? this.weight,
+      edition: edition ?? this.edition,
+      series: series ?? this.series,
+      subtitle: subtitle ?? this.subtitle,
+      categories: categories ?? this.categories,
+      tags: tags ?? this.tags,
+      maturityRating: maturityRating ?? this.maturityRating,
+      format: format ?? this.format,
     );
   }
 
