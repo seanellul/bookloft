@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/inventory_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/book.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
@@ -27,12 +27,12 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   final _publisherController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
-  // Volunteer name will be auto-populated from authenticated user
   final _notesController = TextEditingController();
 
   bool _isLoading = false;
   bool _isDonation = true;
   String? _bookCoverUrl;
+  int _transactionQuantity = 1;
 
   @override
   void initState() {
@@ -50,8 +50,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       _publisherController.text = widget.book!.publisher ?? '';
       _descriptionController.text = widget.book!.description ?? '';
       _quantityController.text = widget.book!.quantity.toString();
-    } else {
-      _quantityController.text = '1';
+      _bookCoverUrl = widget.book!.thumbnailUrl;
+      print('Book cover URL from existing book: $_bookCoverUrl'); // Debug
     }
   }
 
@@ -65,49 +65,25 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       if (bookData != null) {
         setState(() {
           _titleController.text = bookData['title'] ?? '';
-          _authorController.text = bookData['authors'] != null
-              ? (bookData['authors'] as List).map((a) => a['name']).join(', ')
+          _authorController.text = bookData['authors']?.isNotEmpty == true
+              ? bookData['authors'][0]['name'] ?? ''
               : '';
-          _publisherController.text = bookData['publishers'] != null
-              ? (bookData['publishers'] as List)
-                  .map((p) => p['name'])
-                  .join(', ')
+          _publisherController.text = bookData['publishers']?.isNotEmpty == true
+              ? bookData['publishers'][0]['name'] ?? ''
               : '';
           _descriptionController.text = bookData['description'] ?? '';
           _bookCoverUrl = bookData['thumbnail_url'];
+          print('Book cover URL from API lookup: $_bookCoverUrl'); // Debug
+          print('Author from API lookup: ${_authorController.text}'); // Debug
         });
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Book information loaded successfully!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        // Show message that no data was found
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('No book information found. Please enter manually.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
       }
     } catch (e) {
-      // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to lookup book information: $e'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -125,310 +101,583 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     _publisherController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
-    // Volunteer name controller removed - auto-populated from auth
     _notesController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    print('Building BookDetailsScreen - Cover URL: $_bookCoverUrl'); // Debug
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isNewBook ? 'Add New Book' : 'Book Details'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        actions: [
-          if (!widget.isNewBook)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: _editBook,
-            ),
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Book information card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+          : CustomScrollView(
+              slivers: [
+                _buildSliverAppBar(context),
+                SliverToBoxAdapter(
+                  child: _buildBookContent(context),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return SliverAppBar(
+          expandedHeight: 120,
+          floating: false,
+          pinned: true,
+          backgroundColor: primaryColor,
+          foregroundColor: isDarkTheme ? Colors.white : Colors.white,
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    primaryColor,
+                    primaryColor.withOpacity(0.8),
+                  ],
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      _titleController.text.isNotEmpty
+                          ? _titleController.text
+                          : 'Unknown Title',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _authorController.text.isNotEmpty
+                          ? _authorController.text
+                          : 'Unknown Author',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            if (!widget.isNewBook)
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: _editBook,
+                tooltip: 'Edit Book',
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBookContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Book Information Card
+          _buildBookInfoCard(context),
+          const SizedBox(height: 20),
+
+          // Description Card
+          if (_descriptionController.text.isNotEmpty)
+            _buildDescriptionCard(context),
+
+          if (_descriptionController.text.isNotEmpty)
+            const SizedBox(height: 20),
+
+          // Transaction Section (for both new and existing books)
+          _buildTransactionSection(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookInfoCard(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDarkTheme
+                            ? primaryColor.withOpacity(0.3)
+                            : primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.info_outline,
+                        color: isDarkTheme ? Colors.white : primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Book Information',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDarkTheme ? Colors.white : null,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Book cover image (small reference)
+                if (_bookCoverUrl != null && _bookCoverUrl!.isNotEmpty)
+                  Center(
+                    child: Container(
+                      height: 120,
+                      width: 80,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _bookCoverUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print('Image load error: $error'); // Debug
+                            return Container(
+                              color: Colors.grey[300],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.book,
+                                    size: 40,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'No Cover',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                // Show placeholder when no cover URL
+                if (_bookCoverUrl == null || _bookCoverUrl!.isEmpty)
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 120,
+                          width: 80,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.book,
-                                color: Theme.of(context).colorScheme.primary,
+                                size: 40,
+                                color: Colors.grey[400],
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(height: 4),
                               Text(
-                                'Book Information',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Book cover image
-                          if (_bookCoverUrl != null) ...[
-                            Center(
-                              child: Container(
-                                height: 200,
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    _bookCoverUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: Colors.grey[300],
-                                        child: Icon(
-                                          Icons.book,
-                                          size: 50,
-                                          color: Colors.grey[600],
-                                        ),
-                                      );
-                                    },
-                                    loadingBuilder:
-                                        (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        color: Colors.grey[200],
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            value: loadingProgress
-                                                        .expectedTotalBytes !=
-                                                    null
-                                                ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                                : null,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          TextField(
-                            controller: _titleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Title *',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: widget.isNewBook,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _authorController,
-                            decoration: const InputDecoration(
-                              labelText: 'Author *',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: widget.isNewBook,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _publisherController,
-                            decoration: const InputDecoration(
-                              labelText: 'Publisher',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: widget.isNewBook,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Description',
-                              border: OutlineInputBorder(),
-                            ),
-                            maxLines: 3,
-                            enabled: widget.isNewBook,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: TextEditingController(
-                                text: widget.scannedBarcode),
-                            decoration: const InputDecoration(
-                              labelText: 'ISBN',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: false,
-                          ),
-                          if (widget.isNewBook) ...[
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _lookupBookData,
-                              icon: _isLoading
-                                  ? SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : Icon(Icons.search),
-                              label: Text(_isLoading
-                                  ? 'Looking up...'
-                                  : 'Lookup Book Info'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                foregroundColor:
-                                    Theme.of(context).colorScheme.onPrimary,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Transaction type selection
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Transaction Type',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTransactionTypeSelector(
-                                  context,
-                                  'Donation',
-                                  'Adding books to inventory',
-                                  Icons.add_circle_outline,
-                                  true,
-                                  _isDonation,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildTransactionTypeSelector(
-                                  context,
-                                  'Sale',
-                                  'Removing books from inventory',
-                                  Icons.remove_circle_outline,
-                                  false,
-                                  !_isDonation,
+                                'No Cover',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Transaction details
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Transaction Details',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Quantity selector
-                          _buildQuantitySelector(context),
-                          // Volunteer name is auto-populated from authenticated user
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _notesController,
-                            decoration: const InputDecoration(
-                              labelText: 'Notes',
-                              border: OutlineInputBorder(),
+                        ),
+                        // Lookup button for existing books
+                        if (!widget.isNewBook)
+                          ElevatedButton.icon(
+                            onPressed: _lookupBookData,
+                            icon: const Icon(Icons.search, size: 16),
+                            label: const Text('Lookup Book Info'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                             ),
-                            maxLines: 2,
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
-
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Cancel'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _processTransaction,
-                          child: Text(widget.isNewBook
-                              ? 'Add Book'
-                              : 'Process Transaction'),
-                        ),
-                      ),
-                    ],
+                // Book details grid
+                _buildInfoRow(
+                    context, 'Title', _titleController.text, Icons.title),
+                _buildInfoRow(
+                    context, 'Author', _authorController.text, Icons.person),
+                _buildInfoRow(
+                    context, 'ISBN', widget.scannedBarcode, Icons.qr_code),
+                if (_publisherController.text.isNotEmpty)
+                  _buildInfoRow(context, 'Publisher', _publisherController.text,
+                      Icons.business),
+                if (widget.book != null)
+                  _buildInfoRow(context, 'Quantity',
+                      widget.book!.quantity.toString(), Icons.inventory),
+                if (widget.book != null)
+                  _buildInfoRow(
+                    context,
+                    'Status',
+                    widget.book!.quantity > 0 ? 'Available' : 'Out of Stock',
+                    widget.book!.quantity > 0
+                        ? Icons.check_circle
+                        : Icons.cancel,
+                    valueColor:
+                        widget.book!.quantity > 0 ? Colors.green : Colors.red,
                   ),
-                ],
-              ),
+              ],
             ),
+          ),
+        );
+      },
     );
   }
 
-  void _editBook() {
-    // TODO: Implement edit book functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit functionality coming soon')),
+  Widget _buildInfoRow(
+      BuildContext context, String label, String value, IconData icon,
+      {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: valueColor ??
+                            Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTransactionTypeSelector(
+  Widget _buildDescriptionCard(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDarkTheme
+                            ? primaryColor.withOpacity(0.3)
+                            : primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.description,
+                        color: isDarkTheme ? Colors.white : primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Description',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDarkTheme ? Colors.white : null,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDarkTheme
+                        ? primaryColor.withOpacity(0.1)
+                        : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDarkTheme
+                          ? primaryColor.withOpacity(0.2)
+                          : Colors.grey[200]!,
+                    ),
+                  ),
+                  child: Text(
+                    _descriptionController.text,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.6,
+                          color: isDarkTheme ? Colors.white70 : null,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTransactionSection(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDarkTheme
+                            ? primaryColor.withOpacity(0.3)
+                            : primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.swap_horiz,
+                        color: isDarkTheme ? Colors.white : primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      widget.isNewBook
+                          ? 'Add Book & Transaction'
+                          : 'Transaction',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDarkTheme ? Colors.white : null,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Transaction Type Selector
+                _buildTransactionTypeSelector(context),
+                const SizedBox(height: 20),
+
+                // Quantity Selector
+                _buildQuantitySelector(context),
+                const SizedBox(height: 20),
+
+                // Notes
+                TextField(
+                  controller: _notesController,
+                  decoration: InputDecoration(
+                    labelText: 'Notes (Optional)',
+                    hintText: 'Add any additional notes...',
+                    prefixIcon: const Icon(Icons.note),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 24),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _processTransaction,
+                        icon: Icon(_isDonation ? Icons.add : Icons.remove),
+                        label: Text(
+                          widget.isNewBook
+                              ? (_isDonation
+                                  ? 'Add Book & Donation'
+                                  : 'Add Book & Sale')
+                              : (_isDonation ? 'Add Donation' : 'Process Sale'),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTransactionTypeSelector(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Transaction Type',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDarkTheme ? Colors.white : null,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTransactionTypeButton(
+                    context,
+                    'Donation',
+                    'Adding books to inventory',
+                    Icons.add_circle_outline,
+                    true,
+                    _isDonation,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTransactionTypeButton(
+                    context,
+                    'Sale',
+                    'Removing books from inventory',
+                    Icons.remove_circle_outline,
+                    false,
+                    !_isDonation,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTransactionTypeButton(
     BuildContext context,
     String title,
     String subtitle,
@@ -436,244 +685,229 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     bool isDonation,
     bool isSelected,
   ) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isDonation = isDonation;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 32,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _isDonation = isDonation;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey[600],
+                  ? (isDarkTheme
+                      ? primaryColor.withOpacity(0.3)
+                      : primaryColor.withOpacity(0.1))
+                  : (isDarkTheme
+                      ? Colors.grey[800]?.withOpacity(0.3)
+                      : Colors.grey[100]),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? primaryColor
+                    : (isDarkTheme ? Colors.grey[600]! : Colors.grey[300]!),
+                width: isSelected ? 2 : 1,
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected
+                      ? (isDarkTheme ? Colors.white : primaryColor)
+                      : (isDarkTheme ? Colors.grey[400] : Colors.grey[600]),
+                  size: 28,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey[700],
+                        ? (isDarkTheme ? Colors.white : primaryColor)
+                        : (isDarkTheme ? Colors.grey[300] : Colors.grey[600]),
                   ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.8)
-                        : Colors.grey[600],
+                        ? (isDarkTheme
+                            ? Colors.white70
+                            : primaryColor.withOpacity(0.8))
+                        : (isDarkTheme ? Colors.grey[500] : Colors.grey[500]),
                   ),
-              textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildQuantitySelector(BuildContext context) {
-    final quantity = int.tryParse(_quantityController.text) ?? 0;
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Decrease button
-          GestureDetector(
-            onTap: quantity > 0
-                ? () {
-                    setState(() {
-                      _quantityController.text = (quantity - 1).toString();
-                    });
-                  }
-                : null,
-            child: Container(
-              width: 48,
-              height: 48,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Quantity',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDarkTheme ? Colors.white : null,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: quantity > 0
-                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                    : Colors.grey[200],
-                borderRadius: BorderRadius.circular(24),
+                color: isDarkTheme
+                    ? primaryColor.withOpacity(0.1)
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: quantity > 0
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey[400]!,
+                  color: isDarkTheme
+                      ? primaryColor.withOpacity(0.2)
+                      : Colors.grey[200]!,
                 ),
               ),
-              child: Icon(
-                Icons.remove,
-                color: quantity > 0
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.grey[400],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: _transactionQuantity > 1
+                        ? () {
+                            setState(() {
+                              _transactionQuantity--;
+                            });
+                          }
+                        : null,
+                    icon: Icon(
+                      Icons.remove_circle_outline,
+                      color:
+                          _transactionQuantity > 1 ? primaryColor : Colors.grey,
+                    ),
+                  ),
+                  Text(
+                    '$_transactionQuantity',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isDarkTheme ? Colors.white : primaryColor,
+                        ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _transactionQuantity++;
+                      });
+                    },
+                    icon: Icon(
+                      Icons.add_circle_outline,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+          ],
+        );
+      },
+    );
+  }
 
-          // Quantity display
-          Column(
-            children: [
-              Text(
-                quantity.toString(),
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-              Text(
-                _isDonation ? 'books to add' : 'books to sell',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-              ),
-            ],
-          ),
-
-          // Increase button
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _quantityController.text = (quantity + 1).toString();
-              });
-            },
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              child: Icon(
-                Icons.add,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
+  void _editBook() {
+    // TODO: Implement edit functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edit functionality coming soon!')),
     );
   }
 
   Future<void> _processTransaction() async {
-    if (_titleController.text.isEmpty || _authorController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in required fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final quantity = int.tryParse(_quantityController.text);
-    if (quantity == null || quantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid quantity'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final provider = context.read<InventoryProvider>();
+      Book bookToUse;
 
       if (widget.isNewBook) {
-        // Create new book
-        final newBook = Book(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+        // For new books, save the book first
+        bookToUse = Book(
+          id: '', // Will be set by backend
           isbn: widget.scannedBarcode,
           title: _titleController.text,
           author: _authorController.text,
           publisher: _publisherController.text.isEmpty
               ? null
               : _publisherController.text,
+          publishedDate: null,
           description: _descriptionController.text.isEmpty
               ? null
               : _descriptionController.text,
-          quantity: _isDonation ? quantity : 0,
+          thumbnailUrl: _bookCoverUrl,
+          quantity: 0, // Initial quantity is 0, transactions add/remove
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
 
-        final createdBook = await provider.addBook(newBook);
-        if (createdBook != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Book "${createdBook.title}" added successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop();
-        }
-      } else if (widget.book != null) {
-        // Create transaction for existing book
-        final transaction = Transaction(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          bookId: widget.book!.id,
-          type: _isDonation ? TransactionType.donation : TransactionType.sale,
-          quantity: quantity,
-          date: DateTime.now(),
-          notes: _notesController.text.isEmpty ? null : _notesController.text,
-          volunteerName:
-              '', // Will be auto-populated by backend from authenticated user
-          createdAt: DateTime.now(),
-        );
+        // Save the book first
+        bookToUse = await ApiService.createBook(bookToUse);
+      } else {
+        // For existing books, use the existing book
+        bookToUse = widget.book!;
+      }
 
-        final success = await provider.addTransaction(transaction);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Transaction processed successfully'),
-              backgroundColor: Colors.green,
+      // Now create the transaction
+      final transaction = Transaction(
+        id: '', // Will be set by backend
+        bookId: bookToUse.id,
+        type: _isDonation ? TransactionType.donation : TransactionType.sale,
+        quantity: _transactionQuantity,
+        date: DateTime.now(),
+        notes: _notesController.text.trim(),
+        volunteerName: '', // Will be auto-populated by backend
+        createdAt: DateTime.now(),
+      );
+
+      await ApiService.createTransaction(transaction);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isDonation
+                  ? 'Book added and donation recorded successfully!'
+                  : 'Book added and sale processed successfully!',
             ),
-          );
-          Navigator.of(context).pop();
-        }
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;

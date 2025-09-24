@@ -309,7 +309,7 @@ class ApiService {
   // Format Open Library data to our standard format
   static Map<String, dynamic> _formatOpenLibraryData(
       Map<String, dynamic> data) {
-    return {
+    final result = {
       'title': data['title'] ?? '',
       'authors': data['authors']
               ?.map((author) => {'name': author['name'] ?? ''})
@@ -326,13 +326,15 @@ class ApiService {
           : null,
       'isbn': data['isbn_13']?.first ?? data['isbn_10']?.first ?? '',
     };
+    print('Open Library API result: $result'); // Debug
+    return result;
   }
 
   // Format Google Books data to our standard format
   static Map<String, dynamic> _formatGoogleBooksData(
       Map<String, dynamic> data) {
     final volumeInfo = data['volumeInfo'] ?? {};
-    return {
+    final result = {
       'title': volumeInfo['title'] ?? '',
       'authors': volumeInfo['authors']
               ?.map((author) => {'name': author ?? ''})
@@ -352,5 +354,7 @@ class ApiService {
               orElse: () => {'identifier': ''})['identifier'] ??
           '',
     };
+    print('Google Books API result: $result'); // Debug
+    return result;
   }
 }

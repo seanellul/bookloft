@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 import '../screens/scanner_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/manual_book_entry_screen.dart';
@@ -26,7 +28,6 @@ class QuickActions extends StatelessWidget {
                 context,
                 'Scan Barcode',
                 Icons.qr_code_scanner,
-                Colors.blue,
                 () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const ScannerScreen(),
@@ -40,7 +41,6 @@ class QuickActions extends StatelessWidget {
                 context,
                 'Search Books',
                 Icons.search,
-                Colors.green,
                 () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SearchScreen(),
@@ -58,7 +58,6 @@ class QuickActions extends StatelessWidget {
                 context,
                 'Manual Entry',
                 Icons.edit,
-                Colors.orange,
                 () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const ManualBookEntryScreen(),
@@ -72,7 +71,6 @@ class QuickActions extends StatelessWidget {
                 context,
                 'View Inventory',
                 Icons.inventory,
-                Colors.purple,
                 () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const InventoryScreen(),
@@ -90,41 +88,55 @@ class QuickActions extends StatelessWidget {
     BuildContext context,
     String title,
     IconData icon,
-    Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final primaryColor = themeProvider.primaryColor;
+        final isDarkTheme = primaryColor == Colors.black ||
+            primaryColor == const Color(0xFF1A237E);
+
+        // Use white for dark themes, primary color for light themes
+        final iconColor = isDarkTheme ? Colors.white : primaryColor;
+        final backgroundColor = isDarkTheme
+            ? primaryColor.withOpacity(0.3)
+            : primaryColor.withOpacity(0.1);
+
+        return Card(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                textAlign: TextAlign.center,
+                    child: Icon(
+                      icon,
+                      color: iconColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isDarkTheme ? Colors.white : null,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

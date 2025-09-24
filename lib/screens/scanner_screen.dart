@@ -15,13 +15,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool _isProcessing = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reset processing state when returning to scanner
+    if (_isProcessing) {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Book'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
       body: _isProcessing
           ? const Center(
               child: Column(

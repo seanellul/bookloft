@@ -4,6 +4,7 @@ import '../models/transaction.dart';
 import '../models/inventory_summary.dart';
 import '../services/api_service.dart';
 import '../services/database_service.dart';
+import '../services/auth_service.dart';
 
 class InventoryProvider with ChangeNotifier {
   List<Book> _books = [];
@@ -28,8 +29,38 @@ class InventoryProvider with ChangeNotifier {
 
   // Initialize the provider
   Future<void> initialize() async {
+    await _checkConnectionStatus();
     await loadBooks();
     await loadSummary();
+  }
+
+  // Check connection status and authentication
+  Future<void> _checkConnectionStatus() async {
+    try {
+      // Try a simple API call to check connection
+      await ApiService.getAllBooks();
+      _isOffline = false;
+      _clearError();
+    } catch (e) {
+      // Check if it's an authentication error
+      if (e.toString().contains('401') ||
+          e.toString().contains('Unauthorized')) {
+        // Authentication failed - logout user
+        await AuthService.logout();
+        _setError('Session expired. Please login again.');
+      } else {
+        // Network error - go offline
+        _isOffline = true;
+        _setError('No internet connection. Working offline.');
+      }
+    }
+  }
+
+  // Reset offline status (call when connection is restored)
+  void resetOfflineStatus() {
+    _isOffline = false;
+    _clearError();
+    notifyListeners();
   }
 
   // Load all books
@@ -46,6 +77,13 @@ class InventoryProvider with ChangeNotifier {
             await DatabaseService.insertBook(book);
           }
         } catch (e) {
+          // Check if it's an authentication error
+          if (e.toString().contains('401') ||
+              e.toString().contains('Unauthorized')) {
+            await AuthService.logout();
+            _setError('Session expired. Please login again.');
+            return;
+          }
           // Fallback to local database if API fails
           _books = await DatabaseService.getAllBooks();
           _isOffline = true;
@@ -240,6 +278,15 @@ class InventoryProvider with ChangeNotifier {
     } catch (e) {
       _setError('Failed to load transactions: $e');
       return [];
+    }
+  }
+
+  // Check connection and sync with server
+  Future<void> checkConnectionAndSync() async {
+    await _checkConnectionStatus();
+    if (!_isOffline) {
+      await loadBooks();
+      await loadSummary();
     }
   }
 

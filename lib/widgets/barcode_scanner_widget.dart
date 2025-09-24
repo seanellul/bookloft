@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../screens/manual_book_entry_screen.dart';
 
 class BarcodeScannerWidget extends StatefulWidget {
   final Function(String) onBarcodeScanned;
@@ -43,28 +44,28 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title ?? 'Scan Barcode'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_off, color: Colors.grey),
-            iconSize: 32.0,
-            onPressed: () => controller.toggleTorch(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.camera_rear),
-            iconSize: 32.0,
-            onPressed: () => controller.switchCamera(),
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           MobileScanner(
             controller: controller,
             onDetect: _onDetect,
+          ),
+          // Back button
+          Positioned(
+            top: 50,
+            left: 16,
+            child: SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
           ),
           if (isScanning) ...[
             // Scanning overlay
@@ -158,9 +159,14 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                           onTap: () => controller.switchCamera(),
                         ),
                         _buildActionButton(
-                          icon: Icons.close,
-                          label: 'Cancel',
-                          onTap: () => Navigator.of(context).pop(),
+                          icon: Icons.edit,
+                          label: 'Add Manually',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ManualBookEntryScreen(),
+                            ),
+                          ),
                         ),
                       ],
                     ),

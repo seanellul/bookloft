@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/inventory_summary_card.dart';
-import '../widgets/quick_actions.dart';
 import '../services/auth_service.dart';
 import 'search_screen.dart';
 import 'scanner_screen.dart';
@@ -29,22 +29,132 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Book Loft'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            final primaryColor = themeProvider.primaryColor;
+            final isDarkTheme = primaryColor == Colors.black ||
+                primaryColor == const Color(0xFF1A237E);
+
+            return Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkTheme
+                        ? primaryColor.withOpacity(0.3)
+                        : primaryColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.library_books,
+                    size: 20,
+                    color: isDarkTheme ? Colors.white : primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Book Loft',
+                  style: TextStyle(
+                    color: isDarkTheme
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        shadowColor: Colors.transparent,
         actions: [
+          // Theme selector
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return PopupMenuButton<String>(
+                onSelected: (themeName) async {
+                  await themeProvider.setTheme(themeName);
+                },
+                itemBuilder: (context) =>
+                    ThemeProvider.availableThemes.map((theme) {
+                  return PopupMenuItem(
+                    value: theme,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: ThemeProvider.colorSchemes[theme],
+                            shape: BoxShape.circle,
+                            border: ThemeProvider.colorSchemes[theme] ==
+                                        Colors.black ||
+                                    ThemeProvider.colorSchemes[theme] ==
+                                        const Color(0xFF1A237E)
+                                ? Border.all(color: Colors.grey[300]!, width: 1)
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(theme),
+                        if (themeProvider.themeName == theme) ...[
+                          const Spacer(),
+                          const Icon(Icons.check, size: 16),
+                        ],
+                      ],
+                    ),
+                  );
+                }).toList(),
+                icon: Consumer<ThemeProvider>(
+                  builder: (context, themeProvider, child) {
+                    final primaryColor = themeProvider.primaryColor;
+                    final isDarkTheme = primaryColor == Colors.black ||
+                        primaryColor == const Color(0xFF1A237E);
+
+                    return Icon(
+                      Icons.palette,
+                      color: isDarkTheme ? Colors.white : primaryColor,
+                    );
+                  },
+                ),
+                tooltip: 'Change theme color',
+              );
+            },
+          ),
           Consumer<InventoryProvider>(
             builder: (context, provider, child) {
               if (provider.isOffline) {
-                return const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Icon(
+                return IconButton(
+                  onPressed: () async {
+                    await provider.checkConnectionAndSync();
+                  },
+                  icon: Icon(
                     Icons.cloud_off,
                     color: Colors.orange,
                   ),
+                  tooltip: 'Offline - Tap to retry connection',
                 );
               }
-              return const SizedBox.shrink();
+              return IconButton(
+                onPressed: () async {
+                  await provider.checkConnectionAndSync();
+                },
+                icon: Consumer<ThemeProvider>(
+                  builder: (context, themeProvider, child) {
+                    final primaryColor = themeProvider.primaryColor;
+                    final isDarkTheme = primaryColor == Colors.black ||
+                        primaryColor == const Color(0xFF1A237E);
+
+                    return Icon(
+                      Icons.cloud_done,
+                      color: isDarkTheme ? Colors.white : primaryColor,
+                    );
+                  },
+                ),
+                tooltip: 'Online - Tap to refresh',
+              );
             },
           ),
           PopupMenuButton<String>(
@@ -118,25 +228,149 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome message
-                  Card(
+                  // Connection status banner
+                  if (provider.isOffline)
+                    Consumer<ThemeProvider>(
+                      builder: (context, themeProvider, child) {
+                        final primaryColor = themeProvider.primaryColor;
+                        final isDarkTheme = primaryColor == Colors.black ||
+                            primaryColor == const Color(0xFF1A237E);
+
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: isDarkTheme
+                                  ? [
+                                      primaryColor.withOpacity(0.3),
+                                      primaryColor.withOpacity(0.2),
+                                    ]
+                                  : [
+                                      primaryColor.withOpacity(0.1),
+                                      primaryColor.withOpacity(0.05),
+                                    ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDarkTheme
+                                  ? primaryColor.withOpacity(0.4)
+                                  : primaryColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDarkTheme
+                                      ? primaryColor.withOpacity(0.4)
+                                      : primaryColor.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.cloud_off,
+                                  color:
+                                      isDarkTheme ? Colors.white : primaryColor,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Working Offline',
+                                      style: TextStyle(
+                                        color: isDarkTheme
+                                            ? Colors.white
+                                            : primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Tap the cloud icon to retry connection',
+                                      style: TextStyle(
+                                        color: isDarkTheme
+                                            ? Colors.white70
+                                            : primaryColor.withOpacity(0.8),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                  // Welcome message with gradient
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
+                          Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.05),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.library_books,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 32,
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.library_books,
+                                  size: 28,
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,8 +382,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .headlineSmall
                                           ?.copyWith(
                                             fontWeight: FontWeight.bold,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           ),
                                     ),
+                                    const SizedBox(height: 4),
                                     Text(
                                       'Cayman Humane Society',
                                       style: Theme.of(context)
@@ -159,6 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: Theme.of(context)
                                                 .colorScheme
                                                 .onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                     ),
                                   ],
@@ -166,10 +405,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(
                             'Manage your book inventory with ease. Scan barcodes, track donations, and process sales.',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  height: 1.5,
+                                ),
                           ),
                         ],
                       ),
@@ -184,29 +428,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Quick actions
-                  const QuickActions(),
-
-                  const SizedBox(height: 24),
-
                   // Recent activity section
                   _buildRecentActivitySection(provider),
+
+                  // Bottom spacing to prevent FAB overlap
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const ScannerScreen(),
+      floatingActionButton: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          final primaryColor = themeProvider.primaryColor;
+          final isDarkTheme = primaryColor == Colors.black ||
+              primaryColor == const Color(0xFF1A237E);
+
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ScannerScreen(),
+                  ),
+                );
+              },
+              icon: Icon(
+                Icons.qr_code_scanner,
+                size: 24,
+                color: isDarkTheme ? Colors.white : Colors.white,
+              ),
+              label: Text(
+                'Scan Book',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  color: isDarkTheme ? Colors.white : Colors.white,
+                ),
+              ),
+              backgroundColor: primaryColor,
+              foregroundColor: isDarkTheme ? Colors.white : Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           );
         },
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text('Scan Book'),
       ),
     );
   }
