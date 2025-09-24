@@ -7,7 +7,7 @@ import 'auth_service.dart';
 
 class ApiService {
   static const String baseUrl =
-      'http://localhost:3000/api'; // Local development backend
+      'https://morning-voice-2fb9.hp-230.workers.dev/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // Book operations

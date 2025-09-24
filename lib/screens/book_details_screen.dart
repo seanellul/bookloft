@@ -226,7 +226,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             primaryColor == const Color(0xFF1A237E);
 
         return Card(
-          elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -503,7 +502,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             primaryColor == const Color(0xFF1A237E);
 
         return Card(
-          elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -577,7 +575,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             primaryColor == const Color(0xFF1A237E);
 
         return Card(
-          elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

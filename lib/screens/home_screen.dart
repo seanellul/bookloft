@@ -67,7 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
         shadowColor: Colors.transparent,
         actions: [
           // Theme selector
@@ -479,7 +478,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               backgroundColor: primaryColor,
               foregroundColor: isDarkTheme ? Colors.white : Colors.white,
-              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

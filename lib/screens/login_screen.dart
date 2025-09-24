@@ -129,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Login Form
                   Card(
-                    elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(

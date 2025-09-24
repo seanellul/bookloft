@@ -24,17 +24,10 @@ class BookLoftApp extends StatelessWidget {
             title: 'Book Loft - Cayman Humane',
             theme: ThemeData(
               colorScheme: themeProvider.getColorScheme(context),
-              useMaterial3: true,
+              useMaterial3: false,
               appBarTheme: const AppBarTheme(
                 centerTitle: true,
-                elevation: 2,
               ),
-              // cardTheme: const CardTheme(
-              //   elevation: 2,
-              //   shape: RoundedRectangleBorder(
-              //     borderRadius: BorderRadius.all(Radius.circular(12)),
-              //   ),
-              // ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
