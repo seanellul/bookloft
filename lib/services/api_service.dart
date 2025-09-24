@@ -6,7 +6,7 @@ import '../models/inventory_summary.dart';
 
 class ApiService {
   static const String baseUrl =
-      'https://bookloft-api.example.com'; // Replace with actual backend URL
+      'http://localhost:3000/api'; // Local development backend
   static const Duration timeout = Duration(seconds: 30);
 
   // Book operations
@@ -18,8 +18,15 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        return jsonList.map((json) => Book.fromJson(json)).toList();
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> jsonList =
+              responseData['data']['books'] ?? responseData['data'];
+          return jsonList.map((json) => Book.fromJson(json)).toList();
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to load books: ${response.statusCode}');
       }
@@ -36,8 +43,13 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Book.fromJson(json);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return Book.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else if (response.statusCode == 404) {
         return null;
       } else {
@@ -56,8 +68,15 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        return jsonList.map((json) => Book.fromJson(json)).toList();
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> jsonList =
+              responseData['data']['books'] ?? responseData['data'];
+          return jsonList.map((json) => Book.fromJson(json)).toList();
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to search books: ${response.statusCode}');
       }
@@ -77,8 +96,13 @@ class ApiService {
           .timeout(timeout);
 
       if (response.statusCode == 201) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Book.fromJson(json);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return Book.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to create book: ${response.statusCode}');
       }
@@ -98,8 +122,13 @@ class ApiService {
           .timeout(timeout);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Book.fromJson(json);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return Book.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to update book: ${response.statusCode}');
       }
@@ -120,8 +149,13 @@ class ApiService {
           .timeout(timeout);
 
       if (response.statusCode == 201) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Transaction.fromJson(json);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return Transaction.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to create transaction: ${response.statusCode}');
       }
@@ -138,8 +172,15 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        return jsonList.map((json) => Transaction.fromJson(json)).toList();
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> jsonList =
+              responseData['data']['transactions'] ?? responseData['data'];
+          return jsonList.map((json) => Transaction.fromJson(json)).toList();
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to load transactions: ${response.statusCode}');
       }
@@ -157,8 +198,13 @@ class ApiService {
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return InventorySummary.fromJson(json);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return InventorySummary.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception(
             'Failed to load inventory summary: ${response.statusCode}');
