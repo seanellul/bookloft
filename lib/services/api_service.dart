@@ -27,7 +27,9 @@ class ApiService {
         if (responseData['success'] == true && responseData['data'] != null) {
           final List<dynamic> jsonList =
               responseData['data']['books'] ?? responseData['data'];
-          return jsonList.map((json) => Book.fromJson(json)).toList();
+          return jsonList
+              .map((json) => Book.fromSafeJson(json as Map<String, dynamic>))
+              .toList();
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -53,7 +55,7 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         if (responseData['success'] == true && responseData['data'] != null) {
-          return Book.fromJson(responseData['data']);
+          return Book.fromSafeJson(responseData['data']);
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -83,7 +85,9 @@ class ApiService {
         if (responseData['success'] == true && responseData['data'] != null) {
           final List<dynamic> jsonList =
               responseData['data']['books'] ?? responseData['data'];
-          return jsonList.map((json) => Book.fromJson(json)).toList();
+          return jsonList
+              .map((json) => Book.fromSafeJson(json as Map<String, dynamic>))
+              .toList();
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -110,7 +114,7 @@ class ApiService {
       if (response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         if (responseData['success'] == true && responseData['data'] != null) {
-          return Book.fromJson(responseData['data']);
+          return Book.fromSafeJson(responseData['data']);
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -137,7 +141,7 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         if (responseData['success'] == true && responseData['data'] != null) {
-          return Book.fromJson(responseData['data']);
+          return Book.fromSafeJson(responseData['data']);
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -200,6 +204,34 @@ class ApiService {
     } catch (e) {
       throw Exception('Error creating transaction: $e');
     }
+  }
+
+  // Admin utilities
+  static Future<void> resetDatabase() async {
+    final headers = await AuthService.getAuthHeaders();
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/admin/reset-database'),
+          headers: headers,
+        )
+        .timeout(timeout);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to reset database: ${response.statusCode}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> fixNullIds() async {
+    final headers = await AuthService.getAuthHeaders();
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/admin/fix-null-ids'),
+          headers: headers,
+        )
+        .timeout(timeout);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to fix null IDs: ${response.statusCode}');
   }
 
   static Future<Map<String, dynamic>> getBookTransactions(String bookId) async {

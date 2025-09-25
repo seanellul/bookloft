@@ -199,28 +199,41 @@ class InventoryProvider with ChangeNotifier {
   // Add transaction (donation or sale)
   Future<bool> addTransaction(Transaction transaction) async {
     try {
+      Transaction committedTx = transaction;
       if (_isOffline) {
-        await DatabaseService.insertTransaction(transaction);
+        // Ensure a non-empty unique ID for offline inserts
+        if (committedTx.id.isEmpty) {
+          committedTx = committedTx.copyWith(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+          );
+        }
+        await DatabaseService.insertTransaction(committedTx);
       } else {
         try {
-          await ApiService.createTransaction(transaction);
-          await DatabaseService.insertTransaction(transaction);
+          final saved = await ApiService.createTransaction(transaction);
+          committedTx = saved;
+          await DatabaseService.insertTransaction(saved);
         } catch (e) {
-          // Save locally if API fails
-          await DatabaseService.insertTransaction(transaction);
+          // Save locally if API fails and switch to offline mode
+          if (committedTx.id.isEmpty) {
+            committedTx = committedTx.copyWith(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+            );
+          }
+          await DatabaseService.insertTransaction(committedTx);
           _isOffline = true;
         }
       }
 
-      _transactions.add(transaction);
+      _transactions.add(committedTx);
 
       // Update book quantity
-      final bookIndex = _books.indexWhere((b) => b.id == transaction.bookId);
+      final bookIndex = _books.indexWhere((b) => b.id == committedTx.bookId);
       if (bookIndex != -1) {
         final book = _books[bookIndex];
-        final newQuantity = transaction.isDonation
-            ? book.quantity + transaction.quantity
-            : book.quantity - transaction.quantity;
+        final newQuantity = committedTx.isDonation
+            ? book.quantity + committedTx.quantity
+            : book.quantity - committedTx.quantity;
 
         final updatedBook = book.copyWith(
           quantity: newQuantity,
@@ -318,5 +331,37 @@ class InventoryProvider with ChangeNotifier {
 
   void clearError() {
     _clearError();
+  }
+
+  // Reset both local and remote databases
+  Future<void> resetAllDatabases() async {
+    try {
+      _setLoading(true);
+
+      // Reset local database
+      await DatabaseService.resetDatabase();
+
+      // Reset remote database if online
+      if (!_isOffline) {
+        try {
+          await ApiService.resetDatabase();
+        } catch (e) {
+          print('Failed to reset remote database: $e');
+          // Continue with local reset even if remote fails
+        }
+      }
+
+      // Clear local state
+      _books.clear();
+      _transactions.clear();
+      _summary = null;
+      _clearError();
+
+      notifyListeners();
+    } catch (e) {
+      _setError('Failed to reset databases: $e');
+    } finally {
+      _setLoading(false);
+    }
   }
 }

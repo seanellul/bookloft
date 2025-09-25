@@ -69,6 +69,65 @@ class Book {
   factory Book.fromJson(Map<String, dynamic> json) => _$BookFromJson(json);
   Map<String, dynamic> toJson() => _$BookToJson(this);
 
+  // Safer parser that coerces numeric fields to strings, and handles date types
+  static Book fromSafeJson(Map<String, dynamic> json) {
+    String? _asString(dynamic v) => v == null ? null : v.toString();
+    DateTime _asDate(dynamic v) {
+      if (v == null) return DateTime.now();
+      if (v is DateTime) return v;
+      if (v is int) {
+        // Treat as epoch ms if large, else seconds
+        final isMs = v > 100000000000;
+        return DateTime.fromMillisecondsSinceEpoch(isMs ? v : v * 1000);
+      }
+      if (v is String) {
+        try {
+          return DateTime.parse(v);
+        } catch (_) {
+          return DateTime.now();
+        }
+      }
+      return DateTime.now();
+    }
+
+    int _asInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) {
+        final parsed = int.tryParse(v);
+        return parsed ?? 0;
+      }
+      return 0;
+    }
+
+    return Book(
+      id: _asString(json['id']) ?? '',
+      isbn: _asString(json['isbn']) ?? '',
+      title: _asString(json['title']) ?? '',
+      author: _asString(json['author']) ?? '',
+      publisher: _asString(json['publisher']),
+      publishedDate: _asString(json['published_date']),
+      description: _asString(json['description']),
+      thumbnailUrl: _asString(json['thumbnail_url']),
+      quantity: _asInt(json['quantity']),
+      createdAt: _asDate(json['created_at']),
+      updatedAt: _asDate(json['updated_at']),
+      binding: _asString(json['binding']),
+      isbn10: _asString(json['isbn_10']),
+      language: _asString(json['language']),
+      pageCount: _asString(json['page_count']),
+      dimensions: _asString(json['dimensions']),
+      weight: _asString(json['weight']),
+      edition: _asString(json['edition']),
+      series: _asString(json['series']),
+      subtitle: _asString(json['subtitle']),
+      categories: _asString(json['categories']),
+      tags: _asString(json['tags']),
+      maturityRating: _asString(json['maturity_rating']),
+      format: _asString(json['format']),
+    );
+  }
+
   Book copyWith({
     String? id,
     String? isbn,

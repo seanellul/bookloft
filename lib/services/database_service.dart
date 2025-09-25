@@ -7,7 +7,7 @@ import '../models/inventory_summary.dart';
 class DatabaseService {
   static sqflite.Database? _database;
   static const String _databaseName = 'bookloft.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   static Future<sqflite.Database> get database async {
     if (_database != null) return _database!;
@@ -21,11 +21,12 @@ class DatabaseService {
       path,
       version: _databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
   static Future<void> _onCreate(sqflite.Database db, int version) async {
-    // Create books table
+    // Create books table with all metadata fields
     await db.execute('''
       CREATE TABLE books (
         id TEXT PRIMARY KEY,
@@ -38,7 +39,20 @@ class DatabaseService {
         thumbnail_url TEXT,
         quantity INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        binding TEXT,
+        isbn_10 TEXT,
+        language TEXT,
+        page_count TEXT,
+        dimensions TEXT,
+        weight TEXT,
+        edition TEXT,
+        series TEXT,
+        subtitle TEXT,
+        categories TEXT,
+        tags TEXT,
+        maturity_rating TEXT,
+        format TEXT
       )
     ''');
 
@@ -67,6 +81,26 @@ class DatabaseService {
         .execute('CREATE INDEX idx_transactions_date ON transactions (date)');
   }
 
+  static Future<void> _onUpgrade(
+      sqflite.Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new metadata columns to existing books table
+      await db.execute('ALTER TABLE books ADD COLUMN binding TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN isbn_10 TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN language TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN page_count TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN dimensions TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN weight TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN edition TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN series TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN subtitle TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN categories TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN tags TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN maturity_rating TEXT');
+      await db.execute('ALTER TABLE books ADD COLUMN format TEXT');
+    }
+  }
+
   // Book operations
   static Future<void> insertBook(Book book) async {
     final db = await database;
@@ -81,7 +115,7 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps =
         await db.query('books', orderBy: 'title ASC');
-    return List.generate(maps.length, (i) => Book.fromJson(maps[i]));
+    return List.generate(maps.length, (i) => Book.fromSafeJson(maps[i]));
   }
 
   static Future<Book?> getBookById(String id) async {
@@ -92,7 +126,7 @@ class DatabaseService {
       whereArgs: [id],
     );
     if (maps.isNotEmpty) {
-      return Book.fromJson(maps.first);
+      return Book.fromSafeJson(maps.first);
     }
     return null;
   }
@@ -105,7 +139,7 @@ class DatabaseService {
       whereArgs: [isbn],
     );
     if (maps.isNotEmpty) {
-      return Book.fromJson(maps.first);
+      return Book.fromSafeJson(maps.first);
     }
     return null;
   }
@@ -118,7 +152,7 @@ class DatabaseService {
       whereArgs: ['%$query%', '%$query%', '%$query%'],
       orderBy: 'title ASC',
     );
-    return List.generate(maps.length, (i) => Book.fromJson(maps[i]));
+    return List.generate(maps.length, (i) => Book.fromSafeJson(maps[i]));
   }
 
   static Future<void> updateBook(Book book) async {
@@ -214,6 +248,20 @@ class DatabaseService {
     final db = await database;
     await db.delete('transactions');
     await db.delete('books');
+  }
+
+  // Reset database (drop and recreate)
+  static Future<void> resetDatabase() async {
+    final db = await database;
+    await db.close();
+    _database = null;
+
+    // Delete the database file
+    String path = join(await sqflite.getDatabasesPath(), _databaseName);
+    await sqflite.deleteDatabase(path);
+
+    // Recreate with new schema
+    _database = await _initDatabase();
   }
 
   static Future<void> close() async {
