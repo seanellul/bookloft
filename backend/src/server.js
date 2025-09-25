@@ -6,6 +6,13 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Validate environment variables
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET environment variable not set!');
+  console.warn('⚠️  Using fallback secret for development only.');
+  process.env.JWT_SECRET = 'fallback-development-secret-key-not-for-production';
+}
+
 const { errorHandler } = require('./middleware/errorHandler');
 const { notFound } = require('./middleware/notFound');
 const authRoutes = require('./routes/auth');
@@ -13,6 +20,7 @@ const bookRoutes = require('./routes/books');
 const transactionRoutes = require('./routes/transactions');
 const inventoryRoutes = require('./routes/inventory');
 const syncRoutes = require('./routes/sync');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,6 +68,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use(notFound);

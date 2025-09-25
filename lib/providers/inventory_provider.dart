@@ -260,7 +260,7 @@ class InventoryProvider with ChangeNotifier {
   }
 
   // Load book transactions
-  Future<List<Transaction>> getBookTransactions(String bookId) async {
+  Future<Object> getBookTransactions(String bookId) async {
     try {
       if (_isOffline) {
         return await DatabaseService.getBookTransactions(bookId);

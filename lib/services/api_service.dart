@@ -3,11 +3,12 @@ import 'package:http/http.dart' as http;
 import '../models/book.dart';
 import '../models/transaction.dart';
 import '../models/inventory_summary.dart';
+import '../models/transaction_analytics.dart';
 import 'auth_service.dart';
 
 class ApiService {
   static const String baseUrl =
-      'https://morning-voice-2fb9.hp-230.workers.dev/api';
+      'https://web-production-0001.up.railway.app/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // Book operations
@@ -72,7 +73,7 @@ class ApiService {
       final headers = await AuthService.getAuthHeaders();
       final response = await http
           .get(
-            Uri.parse('$baseUrl/books/search?q=${Uri.encodeComponent(query)}'),
+            Uri.parse('$baseUrl/books?search=${Uri.encodeComponent(query)}'),
             headers: headers,
           )
           .timeout(timeout);
@@ -141,6 +142,30 @@ class ApiService {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
         }
+      } else if (response.statusCode == 404) {
+        // Fallback: try to find the book on server by ISBN and update that ID
+        try {
+          final serverBook = await getBookByIsbn(book.isbn);
+          if (serverBook != null) {
+            final retry = await http
+                .put(
+                  Uri.parse('$baseUrl/books/${serverBook.id}'),
+                  headers: headers,
+                  body: json.encode(book.copyWith(id: serverBook.id).toJson()),
+                )
+                .timeout(timeout);
+            if (retry.statusCode == 200) {
+              final Map<String, dynamic> retryData = jsonDecode(retry.body);
+              if (retryData['success'] == true && retryData['data'] != null) {
+                return Book.fromJson(retryData['data']);
+              }
+            }
+          }
+          // If not found by ISBN, create it
+          return await createBook(book);
+        } catch (e) {
+          throw Exception('Failed to update book (after 404): $e');
+        }
       } else {
         throw Exception('Failed to update book: ${response.statusCode}');
       }
@@ -177,7 +202,7 @@ class ApiService {
     }
   }
 
-  static Future<List<Transaction>> getBookTransactions(String bookId) async {
+  static Future<Map<String, dynamic>> getBookTransactions(String bookId) async {
     try {
       final headers = await AuthService.getAuthHeaders();
       final response = await http
@@ -190,9 +215,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
         if (responseData['success'] == true && responseData['data'] != null) {
-          final List<dynamic> jsonList =
-              responseData['data']['transactions'] ?? responseData['data'];
-          return jsonList.map((json) => Transaction.fromJson(json)).toList();
+          return responseData[
+              'data']; // Returns both transactions and analytics
         } else {
           throw Exception(
               'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
@@ -248,6 +272,13 @@ class ApiService {
     }
 
     return null;
+  }
+
+  // Ensure a book exists on the server; if missing, create it and return the server copy
+  static Future<Book> ensureServerBook(Book localBook) async {
+    final existing = await getBookByIsbn(localBook.isbn);
+    if (existing != null) return existing;
+    return await createBook(localBook);
   }
 
   // Open Library API lookup
@@ -309,12 +340,31 @@ class ApiService {
   // Format Open Library data to our standard format
   static Map<String, dynamic> _formatOpenLibraryData(
       Map<String, dynamic> data) {
+    // Enhanced author processing with logging
+    List<Map<String, String>> authors = [];
+    print('=== OPEN LIBRARY AUTHORS DEBUG ===');
+    print('Raw authors data: ${data['authors']}');
+    print('Authors type: ${data['authors'].runtimeType}');
+
+    if (data['authors'] != null && data['authors'] is List) {
+      for (var author in data['authors']) {
+        print('Processing author: $author (type: ${author.runtimeType})');
+        if (author is Map) {
+          final name = author['name'] ?? author['key'] ?? '';
+          print('Extracted name: "$name"');
+          authors.add({'name': name.toString()});
+        } else if (author is String) {
+          print('Author is string: "$author"');
+          authors.add({'name': author});
+        }
+      }
+    }
+    print('Final authors array: $authors');
+    print('=== END AUTHORS DEBUG ===');
+
     final result = {
       'title': data['title'] ?? '',
-      'authors': data['authors']
-              ?.map((author) => {'name': author['name'] ?? ''})
-              .toList() ??
-          [],
+      'authors': authors,
       'publishers': data['publishers']
               ?.map((publisher) => {'name': publisher ?? ''})
               .toList() ??
@@ -479,5 +529,70 @@ class ApiService {
       return printType.toLowerCase();
     }
     return null;
+  }
+
+  // Time-based transaction analytics
+  static Future<TimeBasedAnalytics> getTimeBasedAnalytics() async {
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/transactions/analytics/time-based'),
+            headers: headers,
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return TimeBasedAnalytics.fromJson(responseData['data']);
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to load analytics: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching analytics: $e');
+    }
+  }
+
+  // Get all transactions for general transaction log
+  static Future<List<Transaction>> getAllTransactions({
+    int page = 1,
+    int limit = 50,
+    String? type,
+    String? volunteerName,
+  }) async {
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      if (type != null) queryParams['type'] = type;
+      if (volunteerName != null) queryParams['volunteer_name'] = volunteerName;
+
+      final uri = Uri.parse('$baseUrl/transactions')
+          .replace(queryParameters: queryParams);
+      final response = await http.get(uri, headers: headers).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> jsonList =
+              responseData['data']['transactions'] ?? responseData['data'];
+          return jsonList.map((json) => Transaction.fromJson(json)).toList();
+        } else {
+          throw Exception(
+              'API returned error: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to load transactions: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching transactions: $e');
+    }
   }
 }

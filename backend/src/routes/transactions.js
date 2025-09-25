@@ -7,13 +7,18 @@ const router = express.Router();
 
 // Validation schemas
 const transactionSchema = Joi.object({
-  book_id: Joi.string().uuid().required(),
+  book_id: Joi.string().required(), // Accept any string ID (not just UUID)
   type: Joi.string().valid('donation', 'sale').required(),
   quantity: Joi.number().integer().min(1).required(),
-  date: Joi.date().default(() => new Date()),
-  volunteer_name: Joi.string().max(255).optional(),
-  notes: Joi.string().optional()
-});
+  date: Joi.alternatives().try(
+    Joi.date(),
+    Joi.string(),
+    Joi.number()
+  ).default(() => new Date()),
+  volunteer_name: Joi.string().allow('', null).max(255).optional(),
+  notes: Joi.string().allow('', null).optional(),
+  
+}).options({ stripUnknown: true }); // Remove unknown fields
 
 // GET /api/transactions - Get all transactions with filtering
 router.get('/', authenticateToken, async (req, res, next) => {
@@ -41,7 +46,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
     // Apply filters
     if (book_id) query = query.where('transactions.book_id', book_id);
     if (type) query = query.where('transactions.type', type);
-    if (volunteer_name) query = query.where('transactions.volunteer_name', 'ilike', `%${volunteer_name}%`);
+    if (volunteer_name) query = query.where('transactions.volunteer_name', 'like', `%${volunteer_name}%`);
     if (date_from) query = query.where('transactions.date', '>=', date_from);
     if (date_to) query = query.where('transactions.date', '<=', date_to);
 
@@ -105,8 +110,15 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
 // POST /api/transactions - Create new transaction
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
-    const { error, value } = transactionSchema.validate(req.body);
+    // Remove fields that the backend should control
+    const cleanedBody = { ...req.body };
+    delete cleanedBody.id;
+    delete cleanedBody.created_at;
+    
+    const { error, value } = transactionSchema.validate(cleanedBody);
     if (error) {
+      console.log('Transaction creation validation error:', error.details[0].message);
+      console.log('Cleaned request body:', JSON.stringify(cleanedBody, null, 2));
       return res.status(400).json({
         success: false,
         error: { message: error.details[0].message }
@@ -134,11 +146,15 @@ router.post('/', authenticateToken, async (req, res, next) => {
     const trx = await db.transaction();
 
     try {
+      // Generate unique ID for transaction
+      const transactionId = Date.now().toString();
+      
       // Create transaction record
       const [transaction] = await trx('transactions')
         .insert({
+          id: transactionId,
           ...value,
-          volunteer_name: req.user.name, // Always use authenticated user's name
+          volunteer_name: req.volunteer.name, // Always use authenticated user's name
           created_at: new Date()
         })
         .returning('*');
@@ -165,16 +181,41 @@ router.post('/', authenticateToken, async (req, res, next) => {
   }
 });
 
-// GET /api/books/:book_id/transactions - Get transactions for a specific book
-router.get('/books/:book_id/transactions', authenticateToken, async (req, res, next) => {
+// GET /api/transactions/analytics/time-based - Get time-based transaction analytics
+router.get('/analytics/time-based', authenticateToken, async (req, res, next) => {
   try {
-    const transactions = await db('transactions')
-      .where({ book_id: req.params.book_id })
-      .orderBy('date', 'desc');
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart.getTime() - (todayStart.getDay() * 24 * 60 * 60 * 1000));
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    // Get transactions for different time periods
+    const [todayTransactions, weekTransactions, monthTransactions, yearTransactions] = await Promise.all([
+      db('transactions').where('date', '>=', todayStart),
+      db('transactions').where('date', '>=', weekStart),
+      db('transactions').where('date', '>=', monthStart),
+      db('transactions').where('date', '>=', yearStart)
+    ]);
+
+    const calculateMetrics = (transactions) => ({
+      books_donated: transactions.filter(t => t.type === 'donation').reduce((sum, t) => sum + t.quantity, 0),
+      books_sold: transactions.filter(t => t.type === 'sale').reduce((sum, t) => sum + t.quantity, 0),
+      donation_transactions: transactions.filter(t => t.type === 'donation').length,
+      sale_transactions: transactions.filter(t => t.type === 'sale').length,
+      total_transactions: transactions.length
+    });
+
+    const analytics = {
+      today: calculateMetrics(todayTransactions),
+      this_week: calculateMetrics(weekTransactions),
+      this_month: calculateMetrics(monthTransactions),
+      this_year: calculateMetrics(yearTransactions)
+    };
 
     res.json({
       success: true,
-      data: transactions
+      data: analytics
     });
   } catch (error) {
     next(error);

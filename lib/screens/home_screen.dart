@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/inventory_summary_card.dart';
+import '../widgets/transaction_analytics_card.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
+import '../models/transaction_analytics.dart';
 import 'search_screen.dart';
 import 'scanner_screen.dart';
 import 'inventory_screen.dart';
@@ -17,12 +20,35 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  TimeBasedAnalytics? _analytics;
+  bool _analyticsLoading = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<InventoryProvider>().initialize();
+      _loadAnalytics();
     });
+  }
+
+  Future<void> _loadAnalytics() async {
+    setState(() {
+      _analyticsLoading = true;
+    });
+
+    try {
+      final analytics = await ApiService.getTimeBasedAnalytics();
+      setState(() {
+        _analytics = analytics;
+      });
+    } catch (e) {
+      print('Error loading analytics: $e');
+    } finally {
+      setState(() {
+        _analyticsLoading = false;
+      });
+    }
   }
 
   @override
@@ -424,6 +450,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Inventory summary
                   if (provider.summary != null)
                     InventorySummaryCard(summary: provider.summary!),
+
+                  const SizedBox(height: 16),
+
+                  // Transaction analytics
+                  if (_analytics != null)
+                    TransactionAnalyticsCard(analytics: _analytics!)
+                  else if (_analyticsLoading)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
 

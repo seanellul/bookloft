@@ -4,6 +4,7 @@ import '../providers/theme_provider.dart';
 import '../models/book.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../providers/inventory_provider.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final Book? book;
@@ -63,20 +64,95 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     try {
       final bookData = await ApiService.lookupBookByIsbn(widget.scannedBarcode);
       if (bookData != null) {
+        // Enhanced logging for debugging
+        print('=== BOOK LOOKUP DEBUG ===');
+        print('Raw API response: $bookData');
+        print('Authors field: ${bookData['authors']}');
+        print('Authors type: ${bookData['authors'].runtimeType}');
+        if (bookData['authors'] is List) {
+          print('Authors list length: ${bookData['authors'].length}');
+          if (bookData['authors'].isNotEmpty) {
+            print('First author: ${bookData['authors'][0]}');
+            print('First author type: ${bookData['authors'][0].runtimeType}');
+            if (bookData['authors'][0] is Map) {
+              print('First author name: ${bookData['authors'][0]['name']}');
+            }
+          }
+        }
+
         setState(() {
           _titleController.text = bookData['title'] ?? '';
-          _authorController.text = bookData['authors']?.isNotEmpty == true
-              ? bookData['authors'][0]['name'] ?? ''
-              : '';
+
+          // Enhanced author parsing with better error handling
+          String authorName = '';
+          if (bookData['authors'] != null &&
+              bookData['authors'] is List &&
+              bookData['authors'].isNotEmpty) {
+            final firstAuthor = bookData['authors'][0];
+            if (firstAuthor is Map && firstAuthor['name'] != null) {
+              authorName = firstAuthor['name'].toString();
+            } else if (firstAuthor is String) {
+              authorName = firstAuthor;
+            }
+          }
+          _authorController.text = authorName;
+
           _publisherController.text = bookData['publishers']?.isNotEmpty == true
               ? bookData['publishers'][0]['name'] ?? ''
               : '';
           _descriptionController.text = bookData['description'] ?? '';
           _bookCoverUrl = bookData['thumbnail_url'];
-          print('Book cover URL from API lookup: $_bookCoverUrl'); // Debug
-          print('Author from API lookup: ${_authorController.text}'); // Debug
-          print('Full book data from API: $bookData'); // Debug all metadata
+
+          print('Final author value: "${_authorController.text}"');
+          print('Book cover URL from API lookup: $_bookCoverUrl');
+          print('=== END DEBUG ===');
         });
+
+        // For existing books, save the updated information to database
+        if (!widget.isNewBook && widget.book != null) {
+          final updatedBook = widget.book!.copyWith(
+            title: _titleController.text,
+            author: _authorController.text,
+            publisher: _publisherController.text.isEmpty
+                ? null
+                : _publisherController.text,
+            description: _descriptionController.text.isEmpty
+                ? null
+                : _descriptionController.text,
+            thumbnailUrl: _bookCoverUrl,
+            // Add new metadata fields
+            binding: bookData['binding'],
+            isbn10: bookData['isbn_10'],
+            language: bookData['language'],
+            pageCount: bookData['page_count'],
+            dimensions: bookData['dimensions'],
+            weight: bookData['weight'],
+            edition: bookData['edition'],
+            series: bookData['series'],
+            subtitle: bookData['subtitle'],
+            categories: bookData['categories'],
+            tags: bookData['tags'],
+            maturityRating: bookData['maturity_rating'],
+            format: bookData['format'],
+            publishedDate: bookData['publish_date'],
+            updatedAt: DateTime.now(),
+          );
+
+          // Route updates through provider to keep local state in sync
+          final provider =
+              Provider.of<InventoryProvider>(context, listen: false);
+          await provider.updateBook(updatedBook);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Book information updated successfully!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -926,7 +1002,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         );
 
         // Save the book first
-        bookToUse = await ApiService.createBook(bookToUse);
+        // Ensure the book exists on the server and get the server copy
+        bookToUse = await ApiService.ensureServerBook(bookToUse);
       } else {
         // For existing books, use the existing book
         bookToUse = widget.book!;
@@ -939,12 +1016,16 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         type: _isDonation ? TransactionType.donation : TransactionType.sale,
         quantity: _transactionQuantity,
         date: DateTime.now(),
-        notes: _notesController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
         volunteerName: '', // Will be auto-populated by backend
         createdAt: DateTime.now(),
       );
 
-      await ApiService.createTransaction(transaction);
+      // Use provider so local DB and summary stay consistent
+      final provider = Provider.of<InventoryProvider>(context, listen: false);
+      await provider.addTransaction(transaction);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -7,29 +7,40 @@ const router = express.Router();
 
 // Validation schemas
 const bookSchema = Joi.object({
+  // Required fields
   isbn: Joi.string().length(13).required(),
   title: Joi.string().max(255).required(),
-  author: Joi.string().max(255).required(),
-  publisher: Joi.string().max(255).optional(),
-  published_date: Joi.date().optional(),
-  description: Joi.string().optional(),
-  thumbnail_url: Joi.string().uri().max(500).allow('').optional(),
+  author: Joi.string().allow('').max(255).required(), // Allow empty for debugging
+  
+  // Optional core fields
+  publisher: Joi.string().allow('', null).max(255).optional(),
+  published_date: Joi.alternatives().try(
+    Joi.date(),
+    Joi.string().allow('', null)
+  ).optional(),
+  description: Joi.string().allow('', null).optional(),
+  thumbnail_url: Joi.string().allow('', null).max(500).optional(),
   quantity: Joi.number().integer().min(0).default(0),
+  
+  
   // New metadata fields
-  binding: Joi.string().max(50).optional(),
-  isbn_10: Joi.string().max(10).optional(),
-  language: Joi.string().max(10).optional(),
-  page_count: Joi.string().max(10).optional(),
-  dimensions: Joi.string().max(50).optional(),
-  weight: Joi.string().max(20).optional(),
-  edition: Joi.string().max(50).optional(),
-  series: Joi.string().max(255).optional(),
-  subtitle: Joi.string().max(500).optional(),
-  categories: Joi.string().optional(), // JSON string
-  tags: Joi.string().optional(), // JSON string
-  maturity_rating: Joi.string().max(20).optional(),
-  format: Joi.string().max(50).optional()
-});
+  binding: Joi.string().allow('', null).max(50).optional(),
+  isbn_10: Joi.string().allow('', null).max(10).optional(),
+  language: Joi.string().allow('', null).max(10).optional(),
+  page_count: Joi.alternatives().try(
+    Joi.string().allow('', null).max(10),
+    Joi.number().integer().min(0)
+  ).optional(),
+  dimensions: Joi.string().allow('', null).max(50).optional(),
+  weight: Joi.string().allow('', null).max(20).optional(),
+  edition: Joi.string().allow('', null).max(50).optional(),
+  series: Joi.string().allow('', null).max(255).optional(),
+  subtitle: Joi.string().allow('', null).max(500).optional(),
+  categories: Joi.string().allow('', null).optional(), // JSON string
+  tags: Joi.string().allow('', null).optional(), // JSON string
+  maturity_rating: Joi.string().allow('', null).max(20).optional(),
+  format: Joi.string().allow('', null).max(50).optional()
+}).options({ stripUnknown: true }); // Remove unknown fields
 
 const searchSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
@@ -56,10 +67,11 @@ router.get('/', authenticateToken, async (req, res, next) => {
 
     // Apply search filter
     if (search) {
+      const like = `%${search}%`;
       query = query.where(function() {
-        this.where('title', 'ilike', `%${search}%`)
-            .orWhere('author', 'ilike', `%${search}%`)
-            .orWhere('isbn', 'ilike', `%${search}%`);
+        this.where('title', 'like', like)
+            .orWhere('author', 'like', like)
+            .orWhere('isbn', 'like', like);
       });
     }
 
@@ -141,21 +153,44 @@ router.get('/isbn/:isbn', authenticateToken, async (req, res, next) => {
 // POST /api/books - Create new book
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
-    const { error, value } = bookSchema.validate(req.body);
+    // Remove fields that the backend should control
+    const cleanedBody = { ...req.body };
+    delete cleanedBody.id;
+    delete cleanedBody.created_at;
+    delete cleanedBody.updated_at;
+    
+    const { error, value } = bookSchema.validate(cleanedBody);
     if (error) {
+      console.log('=== BOOK VALIDATION ERROR ===');
+      console.log('Error message:', error.details[0].message);
+      console.log('Error path:', error.details[0].path);
+      console.log('Error context:', error.details[0].context);
+      console.log('Original request body keys:', Object.keys(req.body));
+      console.log('Cleaned request body:', JSON.stringify(cleanedBody, null, 2));
+      console.log('=== END VALIDATION ERROR ===');
       return res.status(400).json({
         success: false,
-        error: { message: error.details[0].message }
+        error: { 
+          message: error.details[0].message,
+          field: error.details[0].path?.join('.'),
+          received_value: error.details[0].context?.value
+        }
       });
     }
 
-    const [book] = await db('books')
+    // Generate unique ID
+    const bookId = Date.now().toString();
+    
+    await db('books')
       .insert({
+        id: bookId,
         ...value,
         created_at: new Date(),
         updated_at: new Date()
-      })
-      .returning('*');
+      });
+
+    // Fetch the created book
+    const book = await db('books').where({ id: bookId }).first();
 
     res.status(201).json({
       success: true,
@@ -169,7 +204,13 @@ router.post('/', authenticateToken, async (req, res, next) => {
 // PUT /api/books/:id - Update book
 router.put('/:id', authenticateToken, async (req, res, next) => {
   try {
-    const { error, value } = bookSchema.validate(req.body);
+    // Remove fields that the backend should control
+    const cleanedBody = { ...req.body };
+    delete cleanedBody.id;
+    delete cleanedBody.created_at;
+    delete cleanedBody.updated_at;
+    
+    const { error, value } = bookSchema.validate(cleanedBody);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -177,20 +218,22 @@ router.put('/:id', authenticateToken, async (req, res, next) => {
       });
     }
 
-    const [book] = await db('books')
+    const updateCount = await db('books')
       .where({ id: req.params.id })
       .update({
         ...value,
         updated_at: new Date()
-      })
-      .returning('*');
+      });
 
-    if (!book) {
+    if (updateCount === 0) {
       return res.status(404).json({
         success: false,
         error: { message: 'Book not found' }
       });
     }
+
+    // Fetch the updated book
+    const book = await db('books').where({ id: req.params.id }).first();
 
     res.json({
       success: true,
@@ -222,6 +265,35 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
     res.json({
       success: true,
       data: { message: 'Book deleted successfully' }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/books/:book_id/transactions - Get transactions for a specific book with analytics
+router.get('/:book_id/transactions', authenticateToken, async (req, res, next) => {
+  try {
+    // Get all transactions for the book
+    const transactions = await db('transactions')
+      .where({ book_id: req.params.book_id })
+      .orderBy('date', 'desc');
+
+    // Calculate analytics
+    const analytics = {
+      total_transactions: transactions.length,
+      times_donated: transactions.filter(t => t.type === 'donation').reduce((sum, t) => sum + t.quantity, 0),
+      times_sold: transactions.filter(t => t.type === 'sale').reduce((sum, t) => sum + t.quantity, 0),
+      donation_count: transactions.filter(t => t.type === 'donation').length,
+      sale_count: transactions.filter(t => t.type === 'sale').length,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        transactions,
+        analytics
+      }
     });
   } catch (error) {
     next(error);

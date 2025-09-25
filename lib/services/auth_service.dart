@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String baseUrl =
-      'https://morning-voice-2fb9.hp-230.workers.dev/api';
+      'https://web-production-0001.up.railway.app/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // Login with email and password
