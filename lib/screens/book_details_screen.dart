@@ -88,11 +88,28 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           if (bookData['authors'] != null &&
               bookData['authors'] is List &&
               bookData['authors'].isNotEmpty) {
-            final firstAuthor = bookData['authors'][0];
-            if (firstAuthor is Map && firstAuthor['name'] != null) {
-              authorName = firstAuthor['name'].toString();
-            } else if (firstAuthor is String) {
-              authorName = firstAuthor;
+            // Join multiple authors with ", " or just take the first one
+            final authorsList = <String>[];
+            for (var author in bookData['authors']) {
+              if (author is Map && author['name'] != null) {
+                final name = author['name'].toString().trim();
+                if (name.isNotEmpty && !name.startsWith('/authors/')) {
+                  authorsList.add(name);
+                }
+              } else if (author is String) {
+                final name = author.trim();
+                if (name.isNotEmpty && !name.startsWith('/authors/')) {
+                  authorsList.add(name);
+                }
+              }
+            }
+
+            if (authorsList.isNotEmpty) {
+              // Join up to 3 authors for readability
+              authorName = authorsList.take(3).join(', ');
+              if (authorsList.length > 3) {
+                authorName += ' et al.';
+              }
             }
           }
           _authorController.text = authorName;
@@ -1004,6 +1021,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         // Save the book first
         // Ensure the book exists on the server and get the server copy
         bookToUse = await ApiService.ensureServerBook(bookToUse);
+
+        // Add the book to the provider's local state
+        final provider = Provider.of<InventoryProvider>(context, listen: false);
+        await provider.addBook(bookToUse);
       } else {
         // For existing books, use the existing book
         bookToUse = widget.book!;

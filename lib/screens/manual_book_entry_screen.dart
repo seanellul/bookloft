@@ -77,14 +77,45 @@ class _ManualBookEntryScreenState extends State<ManualBookEntryScreen> {
       final bookData = await ApiService.lookupBookByIsbn(cleanIsbn);
       if (bookData != null) {
         // Create new book with looked up data
+        // Extract author from the authors array
+        String authorName = 'Unknown Author';
+        if (bookData['authors'] != null &&
+            bookData['authors'] is List &&
+            bookData['authors'].isNotEmpty) {
+          final authorsList = <String>[];
+          for (var author in bookData['authors']) {
+            if (author is Map && author['name'] != null) {
+              final name = author['name'].toString().trim();
+              if (name.isNotEmpty && !name.startsWith('/authors/')) {
+                authorsList.add(name);
+              }
+            } else if (author is String) {
+              final name = author.trim();
+              if (name.isNotEmpty && !name.startsWith('/authors/')) {
+                authorsList.add(name);
+              }
+            }
+          }
+
+          if (authorsList.isNotEmpty) {
+            // Join up to 3 authors for readability
+            authorName = authorsList.take(3).join(', ');
+            if (authorsList.length > 3) {
+              authorName += ' et al.';
+            }
+          }
+        }
+
         final newBook = Book(
           id: '', // Will be set by backend
           isbn: cleanIsbn,
           title: bookData['title'] ?? 'Unknown Title',
-          author: bookData['author'] ?? 'Unknown Author',
-          publisher: bookData['publisher'],
+          author: authorName,
+          publisher: bookData['publishers']?.isNotEmpty == true
+              ? bookData['publishers'][0]['name'] ?? null
+              : null,
           description: bookData['description'],
-          thumbnailUrl: bookData['thumbnailUrl'],
+          thumbnailUrl: bookData['thumbnail_url'],
           quantity: 0,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),

@@ -64,10 +64,10 @@ class InventoryProvider with ChangeNotifier {
   }
 
   // Load all books
-  Future<void> loadBooks() async {
+  Future<void> loadBooks({bool forceRefresh = false}) async {
     _setLoading(true);
     try {
-      if (_isOffline) {
+      if (_isOffline && !forceRefresh) {
         _books = await DatabaseService.getAllBooks();
       } else {
         try {
@@ -76,6 +76,7 @@ class InventoryProvider with ChangeNotifier {
           for (final book in _books) {
             await DatabaseService.insertBook(book);
           }
+          _isOffline = false; // Reset offline status if successful
         } catch (e) {
           // Check if it's an authentication error
           if (e.toString().contains('401') ||
@@ -156,6 +157,7 @@ class InventoryProvider with ChangeNotifier {
         }
       }
 
+      // Add to local state
       _books.add(newBook);
       notifyListeners();
       await loadSummary();
@@ -297,10 +299,9 @@ class InventoryProvider with ChangeNotifier {
   // Check connection and sync with server
   Future<void> checkConnectionAndSync() async {
     await _checkConnectionStatus();
-    if (!_isOffline) {
-      await loadBooks();
-      await loadSummary();
-    }
+    // Force refresh from server to get latest data
+    await loadBooks(forceRefresh: true);
+    await loadSummary();
   }
 
   // Sync with server (when connection is restored)

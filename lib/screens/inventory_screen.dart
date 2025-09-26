@@ -122,7 +122,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              await provider.loadBooks();
+              await provider.checkConnectionAndSync();
             },
             child: books.isEmpty
                 ? _buildEmptyState()

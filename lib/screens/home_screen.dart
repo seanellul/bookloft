@@ -248,8 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              await provider.loadBooks();
-              await provider.loadSummary();
+              await provider.checkConnectionAndSync();
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),

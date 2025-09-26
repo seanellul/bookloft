@@ -313,6 +313,100 @@ class ApiService {
     return await createBook(localBook);
   }
 
+  // Resolve author names from Open Library author keys
+  static Future<void> _resolveAuthorNames(Map<String, dynamic> data) async {
+    if (data['authors'] == null || data['authors'] is! List) return;
+
+    final List<dynamic> authors = data['authors'];
+    final List<Map<String, dynamic>> resolvedAuthors = [];
+
+    print('=== RESOLVING AUTHORS DEBUG ===');
+    print('Input authors: $authors');
+
+    for (var author in authors) {
+      try {
+        String? authorName;
+
+        if (author is Map) {
+          print('Processing author map: $author');
+          // Check if we already have a name
+          if (author['name'] != null &&
+              author['name'].toString().isNotEmpty &&
+              !author['name'].toString().startsWith('/authors/')) {
+            authorName = author['name'].toString();
+            print('Found existing name: $authorName');
+          }
+          // If name is empty or we have a key that looks like an author reference
+          else if (author['key'] != null &&
+              author['key'].toString().startsWith('/authors/')) {
+            print('Resolving author key: ${author['key']}');
+            authorName = await _fetchAuthorName(author['key'].toString());
+            print('Resolved to: $authorName');
+          }
+        } else if (author is String) {
+          print('Processing author string: $author');
+          // If it's a string that looks like an author key
+          if (author.startsWith('/authors/')) {
+            print('Resolving author key string: $author');
+            authorName = await _fetchAuthorName(author);
+            print('Resolved to: $authorName');
+          } else {
+            authorName = author;
+            print('Using author string as-is: $authorName');
+          }
+        }
+
+        // Add resolved author name
+        if (authorName != null && authorName.isNotEmpty) {
+          resolvedAuthors.add({'name': authorName});
+        }
+      } catch (e) {
+        print('Error resolving author: $e');
+        // If we can't resolve, keep whatever we have
+        if (author is Map && author['name'] != null) {
+          resolvedAuthors.add({'name': author['name'].toString()});
+        } else if (author is String) {
+          resolvedAuthors.add({'name': author});
+        }
+      }
+    }
+
+    print('Final resolved authors: $resolvedAuthors');
+    print('=== END RESOLVING AUTHORS DEBUG ===');
+
+    // Update the data with resolved author names
+    data['authors'] = resolvedAuthors;
+  }
+
+  // Fetch author name from Open Library author API
+  static Future<String?> _fetchAuthorName(String authorKey) async {
+    try {
+      // Remove leading slash if present and construct the API URL
+      final cleanKey =
+          authorKey.startsWith('/') ? authorKey.substring(1) : authorKey;
+      final url = 'https://openlibrary.org/$cleanKey.json';
+      print('Fetching author data from: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final authorData = jsonDecode(response.body);
+        print('Author API response: $authorData');
+        final name = authorData['name'] ?? authorData['personal_name'];
+        print('Extracted author name: $name');
+        return name;
+      } else {
+        print('Author API request failed with status: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching author name for $authorKey: $e');
+    }
+    return null;
+  }
+
   // Open Library API lookup
   static Future<Map<String, dynamic>?> _lookupFromOpenLibrary(
       String isbn) async {
@@ -339,6 +433,9 @@ class ApiService {
                 workData['description']?['value'] ?? workData['description'];
           }
         }
+
+        // Resolve author names from author keys
+        await _resolveAuthorNames(data);
 
         return _formatOpenLibraryData(data);
       }
@@ -372,7 +469,7 @@ class ApiService {
   // Format Open Library data to our standard format
   static Map<String, dynamic> _formatOpenLibraryData(
       Map<String, dynamic> data) {
-    // Enhanced author processing with logging
+    // Process authors (should already be resolved at this point)
     List<Map<String, String>> authors = [];
     print('=== OPEN LIBRARY AUTHORS DEBUG ===');
     print('Raw authors data: ${data['authors']}');
@@ -381,10 +478,10 @@ class ApiService {
     if (data['authors'] != null && data['authors'] is List) {
       for (var author in data['authors']) {
         print('Processing author: $author (type: ${author.runtimeType})');
-        if (author is Map) {
-          final name = author['name'] ?? author['key'] ?? '';
+        if (author is Map && author['name'] != null) {
+          final name = author['name'].toString();
           print('Extracted name: "$name"');
-          authors.add({'name': name.toString()});
+          authors.add({'name': name});
         } else if (author is String) {
           print('Author is string: "$author"');
           authors.add({'name': author});
